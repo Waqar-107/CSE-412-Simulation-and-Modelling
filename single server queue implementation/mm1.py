@@ -1,6 +1,6 @@
 # from dust i have come, dust i will be
 
-import random
+# import random
 import math
 
 # ================================================================
@@ -61,7 +61,7 @@ idle = 0
 mean_inter_arrival, mean_service, number_of_delays_req = 0.0, 0.0, 0
 outfile = open("out.txt", "w")
 
-next_event_type, number_of_customers_delayed, number_of_events, number_in_q, server_status = 0, 0, 0, 0, 0
+next_event_type, number_of_customers_delayed, number_of_events, people_in_q, server_status = 0, 0, 0, 0, 0
 area_number_in_q, area_server_status, simulation_time, time_last_event, total_of_delays = 0.0, 0.0, 0.0, 0.0, 0.0
 time_arrival = [0.0] * (queue_limit + 1)
 time_next_event = [0.0] * 3
@@ -86,11 +86,13 @@ def initialize():
 def timing():
     global next_event_type, number_of_events, time_next_event, simulation_time
 
+    # declare a min
     min_time_next_event = 1.0e29
 
     next_event_type = 0
 
     # determine the next event type
+    # events can be either arrive or departure
     for i in range(1, number_of_events + 1, 1):
         if time_next_event[i] < min_time_next_event:
             min_time_next_event = time_next_event[i]
@@ -104,20 +106,20 @@ def timing():
 
 
 def update_time_avg_stats():
-    global simulation_time, time_last_event, area_number_in_q, number_in_q, area_server_status
+    global simulation_time, time_last_event, area_number_in_q, people_in_q, area_server_status
 
     time_since_last_event = simulation_time - time_last_event
     time_last_event = simulation_time
 
     # update area under number-in-queue function
-    area_number_in_q += number_in_q * time_since_last_event
+    area_number_in_q += people_in_q * time_since_last_event
 
     # update area under server-busy indicator function
     area_server_status += server_status * time_since_last_event
 
 
 def arrive():
-    global number_in_q, time_next_event, simulation_time, total_of_delays,\
+    global people_in_q, time_next_event, simulation_time, total_of_delays,\
         number_of_customers_delayed, server_status, mean_service
 
     # schedule next arrival
@@ -126,14 +128,14 @@ def arrive():
     # check to see whether server is busy
     if server_status == busy:
         # server is busy so add a customer in the q
-        number_in_q += 1
+        people_in_q += 1
 
-        if number_in_q > queue_limit:
+        if people_in_q > queue_limit:
             outfile.write("overflow in the q at " + str(simulation_time) + "\n")
             exit(2)
 
         # there's still room in the q
-        time_arrival[number_in_q] = simulation_time
+        time_arrival[people_in_q] = simulation_time
 
     else:
         # server is idle, so arriving customer has a delay of 0
@@ -149,16 +151,16 @@ def arrive():
 
 
 def depart():
-    global number_in_q, server_status, time_next_event, total_of_delays, \
+    global people_in_q, server_status, time_next_event, total_of_delays, \
         number_of_customers_delayed, mean_service, time_arrival
 
     # if the q is empty
-    if number_in_q == 0:
+    if people_in_q == 0:
         server_status = idle
         time_next_event[2] = 1.0e30
 
     else:
-        number_in_q -= 1
+        people_in_q -= 1
 
         # compute the delay of the customer who is beginning service
         # and update the total delay of accumulator
@@ -169,7 +171,7 @@ def depart():
         number_of_customers_delayed += 1
         time_next_event[2] = simulation_time + expon(mean_service)
 
-        for i in range(1, number_in_q + 1, 1):
+        for i in range(1, people_in_q + 1, 1):
             time_arrival[i] = time_arrival[i + 1]
 
 
