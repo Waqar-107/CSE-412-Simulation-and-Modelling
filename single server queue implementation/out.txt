@@ -1,0 +1,12 @@
+single server queuing system
+mean inter arrival time 1.0
+mean service time 0.5
+number of customers 480
+
+avg delay in queue 0.397
+
+avg number in queue 0.389
+
+server utilization 0.458
+
+time simulation ended 489.886

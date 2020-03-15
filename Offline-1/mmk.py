@@ -209,8 +209,8 @@ def experiment3():
 
 def main():
     experiment1()
-    experiment2()
-    experiment3()
+    # experiment2()
+    # experiment3()
 
 
 if __name__ == "__main__":
