@@ -22,28 +22,35 @@ class States:
 
         # Statistics
         self.util = 0.0
-        self.avgQdelay = 0.0
+        self.avg_Q_delay = 0.0
         self.avgQlength = 0.0
         self.served = 0
+
+        self.total_delay = 0.0
+        self.total_time_served = 0.0
 
     def update(self, sim, event):
         # Complete this function
         None
 
+    # called when there's no event left
+    # do the calculations here
     def finish(self, sim):
-        # Complete this function
-        None
+        self.avg_Q_delay = self.total_delay / self.served
+
+        # sim.now() will have the EXIT time
+        self.util = self.total_time_served / sim.now()
 
     def print_results(self, sim):
         # DO NOT CHANGE THESE LINES
         print('MMk Results: lambda = %lf, mu = %lf, k = %d' % (sim.params.lambd, sim.params.mu, sim.params.k))
         print('MMk Total customer served: %d' % self.served)
         print('MMk Average queue length: %lf' % self.avgQlength)
-        print('MMk Average customer delay in queue: %lf' % self.avgQdelay)
+        print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
 
     def get_results(self, sim):
-        return self.avgQlength, self.avgQdelay, self.util
+        return self.avgQlength, self.avg_Q_delay, self.util
 
 
 # Write more functions if required
@@ -53,7 +60,7 @@ class Event:
     def __init__(self, sim):
         self.eventType = None
         self.sim = sim
-        self.eventTime = None
+        self.event_time = None
 
     def process(self, sim):
         raise Exception('Unimplemented process method for the event!')
@@ -63,9 +70,9 @@ class Event:
 
 
 class StartEvent(Event):
-    def __init__(self, eventTime, sim):
+    def __init__(self, event_time, sim):
         super().__init__(sim)
-        self.eventTime = eventTime
+        self.event_time = event_time
         self.eventType = 'START'
         self.sim = sim
 
@@ -75,9 +82,9 @@ class StartEvent(Event):
 
 
 class ExitEvent(Event):
-    def __init__(self, eventTime, sim):
+    def __init__(self, event_time, sim):
         super().__init__(sim)
-        self.eventTime = eventTime
+        self.event_time = event_time
         self.eventType = 'EXIT'
         self.sim = sim
 
@@ -87,14 +94,24 @@ class ExitEvent(Event):
 
 
 class ArrivalEvent(Event):
-    # Write __init__ function
+    def __init__(self, event_time, sim):
+        super().__init__(sim)
+        self.event_time = event_time
+        self.eventType = 'ARRIVAL'
+        self.sim = sim
+
     def process(self, sim):
         # Complete this function
         None
 
 
 class DepartureEvent(Event):
-    # Write __init__ function
+    def __init__(self, event_time, sim):
+        super().__init__(sim)
+        self.event_time = event_time
+        self.eventType = 'DEPARTURE'
+        self.sim = sim
+
     def process(self, sim):
         # Complete this function
         None
@@ -122,7 +139,7 @@ class Simulator:
         return self.simulator_clock
 
     def schedule_event(self, event):
-        heapq.heappush(self.eventQ, (event.eventTime, event))
+        heapq.heappush(self.eventQ, (event.event_time, event))
 
     def run(self):
         random.seed(self.seed)
@@ -137,8 +154,8 @@ class Simulator:
             if self.states is not None:
                 self.states.update(self, event)
 
-            print(event.eventTime, 'Event', event)
-            self.simulator_clock = event.eventTime
+            print('Time:', event.event_time, 'Event:', event)
+            self.simulator_clock = event.event_time
             event.process(self)
 
         self.states.finish(self)
