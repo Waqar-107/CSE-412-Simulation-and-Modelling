@@ -1,26 +1,16 @@
-"""
-The task is to simulate an M/M/k system with a single queue.
-Complete the skeleton code and produce results for three experiments.
-The study is mainly to show various results of a queue against its ro parameter.
-ro is defined as the ratio of arrival rate vs service rate.
-For the sake of comparison, while plotting results from simulation, also produce the analytical results.
-"""
+# from dust i have come, dust i will be
 
 import heapq
 import random
-import matplotlib.pyplot as plt
 
 
 # Parameters
 class Params:
     def __init__(self, lambd, mu, k):
-        self.lambd = lambd  # interarrival rate
+        self.lambd = lambd  # inter arrival rate
         self.mu = mu  # service rate
         self.k = k
-    # Note lambd and mu are not mean value, they are rates i.e. (1/mean)
-
-
-# Write more functions if required
+        # Note lambd and mu are not mean value, they are rates i.e. (1/mean)
 
 
 # States and statistical counters
@@ -44,16 +34,16 @@ class States:
         # Complete this function
         None
 
-    def printResults(self, sim):
+    def print_results(self, sim):
         # DO NOT CHANGE THESE LINES
         print('MMk Results: lambda = %lf, mu = %lf, k = %d' % (sim.params.lambd, sim.params.mu, sim.params.k))
-        print('MMk Total customer served: %d' % (self.served))
-        print('MMk Average queue length: %lf' % (self.avgQlength))
-        print('MMk Average customer delay in queue: %lf' % (self.avgQdelay))
-        print('MMk Time-average server utility: %lf' % (self.util))
+        print('MMk Total customer served: %d' % self.served)
+        print('MMk Average queue length: %lf' % self.avgQlength)
+        print('MMk Average customer delay in queue: %lf' % self.avgQdelay)
+        print('MMk Time-average server utility: %lf' % self.util)
 
-    def getResults(self, sim):
-        return (self.avgQlength, self.avgQdelay, self.util)
+    def get_results(self, sim):
+        return self.avgQlength, self.avgQdelay, self.util
 
 
 # Write more functions if required
@@ -74,6 +64,7 @@ class Event:
 
 class StartEvent(Event):
     def __init__(self, eventTime, sim):
+        super().__init__(sim)
         self.eventTime = eventTime
         self.eventType = 'START'
         self.sim = sim
@@ -85,6 +76,7 @@ class StartEvent(Event):
 
 class ExitEvent(Event):
     def __init__(self, eventTime, sim):
+        super().__init__(sim)
         self.eventTime = eventTime
         self.eventType = 'EXIT'
         self.sim = sim
@@ -111,23 +103,25 @@ class DepartureEvent(Event):
 class Simulator:
     def __init__(self, seed):
         self.eventQ = []
-        self.simclock = 0
+        self.simulator_clock = 0
         self.seed = seed
         self.params = None
         self.states = None
 
     def initialize(self):
-        self.simclock = 0
-        self.scheduleEvent(StartEvent(0, self))
+        self.simulator_clock = 0
+        self.schedule_event(StartEvent(0, self))
 
+    # adds the parameters like mu and lambda, a states object is initiated
     def configure(self, params, states):
         self.params = params
         self.states = states
 
+    # returns the current time
     def now(self):
-        return self.simclock
+        return self.simulator_clock
 
-    def scheduleEvent(self, event):
+    def schedule_event(self, event):
         heapq.heappush(self.eventQ, (event.eventTime, event))
 
     def run(self):
@@ -140,20 +134,36 @@ class Simulator:
             if event.eventType == 'EXIT':
                 break
 
-            if self.states != None:
+            if self.states is not None:
                 self.states.update(self, event)
 
             print(event.eventTime, 'Event', event)
-            self.simclock = event.eventTime
+            self.simulator_clock = event.eventTime
             event.process(self)
 
         self.states.finish(self)
 
-    def printResults(self):
-        self.states.printResults(self)
+    def print_results(self):
+        self.states.print_results(self)
 
-    def getResults(self):
-        return self.states.getResults(self)
+    def get_results(self):
+        return self.states.get_results(self)
+
+    def print_analytical_results(self):
+        # avg queue len = (lambda * lambda) / (mu * (mu - lambda))
+        avg_q_len = (self.params.lambd * self.params.lambd) / (self.params.mu * (self.params.mu - self.params.lambd))
+
+        # avg delay in queue = lambda / (mu * (mu - lambda))
+        avg_delay_in_q = self.params.lambd / (self.params.mu * (self.params.mu - self.params.lambd))
+
+        # server utilization factor = lambda / mu
+        server_util_factor = self.params.lambd / self.params.mu
+
+        print("\nAnalytical Results :")
+        print("lambda = %lf, mu = %lf" % (self.params.lambd, self.params.mu))
+        print("Average queue length", round(avg_q_len, 3))
+        print("Average delay in queue", round(avg_delay_in_q, 3))
+        print("Server utilization factor", round(server_util_factor, 3))
 
 
 def experiment1():
@@ -161,60 +171,13 @@ def experiment1():
     sim = Simulator(seed)
     sim.configure(Params(5.0 / 60, 8.0 / 60, 1), States())
     sim.run()
-    sim.printResults()
-
-
-def experiment2():
-    seed = 110
-    mu = 1000.0 / 60
-    ratios = [u / 10.0 for u in range(1, 11)]
-
-    avglength = []
-    avgdelay = []
-    util = []
-
-    for ro in ratios:
-        sim = Simulator(seed)
-        sim.configure(Params(mu * ro, mu, 1), States())
-        sim.run()
-
-        length, delay, utl = sim.getResults()
-        avglength.append(length)
-        avgdelay.append(delay)
-        util.append(utl)
-
-    plt.figure(1)
-    plt.subplot(311)
-    plt.plot(ratios, avglength)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Avg Q length')
-
-    plt.subplot(312)
-    plt.plot(ratios, avgdelay)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Avg Q delay (sec)')
-
-    plt.subplot(313)
-    plt.plot(ratios, util)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Util')
-
-    plt.show()
-
-
-def experiment3():
-    # Similar to experiment2 but for different values of k; 1, 2, 3, 4
-    # Generate the same plots
-    # Fix lambd = (5.0/60), mu = (8.0/60) and change value of k
-    None
+    sim.print_results()
+    sim.print_analytical_results()
 
 
 def main():
     experiment1()
-    # experiment2()
-    # experiment3()
 
 
 if __name__ == "__main__":
     main()
-   
