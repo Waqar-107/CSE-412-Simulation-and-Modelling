@@ -112,9 +112,12 @@ def update_time_avg_stats():
     time_last_event = simulation_time
 
     # update area under number-in-queue function
+    # if the server has been idle then people_in_q should be 0
     area_number_in_q += people_in_q * time_since_last_event
 
     # update area under server-busy indicator function
+    # server_status will be either 1 or 0, if 0 then nothing to add.
+    # if 1 then we need to add the amount of time server has been working
     area_server_status += server_status * time_since_last_event
 
 
@@ -125,7 +128,6 @@ def arrive():
     # schedule next arrival
     time_next_event[1] = simulation_time + expon(mean_inter_arrival)
 
-    # check to see whether server is busy
     if server_status == busy:
         # server is busy so add a customer in the q
         people_in_q += 1
@@ -134,7 +136,7 @@ def arrive():
             outfile.write("overflow in the q at " + str(simulation_time) + "\n")
             exit(2)
 
-        # there's still room in the q
+        # there's still room in the q, record the time when the customer has arrived
         time_arrival[people_in_q] = simulation_time
 
     else:
