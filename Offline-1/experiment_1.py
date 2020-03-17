@@ -3,6 +3,10 @@
 import heapq
 import random
 
+busy = 1
+idle = 0
+total_targeted_to_serve = 10
+
 
 # Parameters
 class Params:
@@ -18,39 +22,44 @@ class States:
     def __init__(self):
         # States
         self.queue = []
-        # Declare other states variables that might be needed
 
         # Statistics
         self.util = 0.0
         self.avg_Q_delay = 0.0
-        self.avgQlength = 0.0
+        self.avg_Q_length = 0.0
         self.served = 0
 
         self.total_delay = 0.0
         self.total_time_served = 0.0
+        self.area_number_in_q = 0.0
+        self.people_in_q = 0
+        self.server_status = idle
 
     def update(self, sim, event):
-        # Complete this function
-        None
+        time_since_last_event = sim.now() - event.event_time
+
+        self.area_number_in_q += len(self.queue) * time_since_last_event
+        self.total_time_served += self.server_status * time_since_last_event
 
     # called when there's no event left
     # do the calculations here
     def finish(self, sim):
-        self.avg_Q_delay = self.total_delay / self.served
-
-        # sim.now() will have the EXIT time
-        self.util = self.total_time_served / sim.now()
+        # self.avg_Q_delay = self.total_delay / self.served
+        #
+        # # sim.now() will have the EXIT time
+        # self.util = self.total_time_served / sim.now()
+        None
 
     def print_results(self, sim):
         # DO NOT CHANGE THESE LINES
         print('MMk Results: lambda = %lf, mu = %lf, k = %d' % (sim.params.lambd, sim.params.mu, sim.params.k))
         print('MMk Total customer served: %d' % self.served)
-        print('MMk Average queue length: %lf' % self.avgQlength)
+        print('MMk Average queue length: %lf' % self.avg_Q_length)
         print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
 
     def get_results(self, sim):
-        return self.avgQlength, self.avg_Q_delay, self.util
+        return self.avg_Q_length, self.avg_Q_delay, self.util
 
 
 # Write more functions if required
@@ -77,8 +86,9 @@ class StartEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-        # Complete this function
-        None
+        # the server has started, next there will be an arrival, so we schedule the first arrival here
+        arrival_time = self.event_time + random.expovariate(self.sim.params.lambd)
+        self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim))
 
 
 class ExitEvent(Event):
@@ -101,8 +111,27 @@ class ArrivalEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-        # Complete this function
-        None
+        # schedule next arrival
+        time_next_arrival = self.sim.now() + random.expovariate(self.sim.params.lambd)
+
+        # if the targeted are served then initiate the exit
+        if sim.states.served >= total_targeted_to_serve:
+            sim.schedule_event(ExitEvent(sim.now(), sim))
+            return
+
+        if sim.states.server_status == busy:
+            sim.states.people_in_q += 1
+            sim.states.queue.append(time_next_arrival)
+        else:
+            delay = 0
+            sim.states.total_delay += delay
+
+            sim.states.server_status = busy
+            sim.states.served += 1
+
+            # schedule a departure
+            depart_time = sim.now() + random.expovariate(sim.params.mu)
+            sim.schedule_event(DepartureEvent(depart_time, sim))
 
 
 class DepartureEvent(Event):
@@ -113,12 +142,25 @@ class DepartureEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-        # Complete this function
-        None
+        if len(sim.states.queue) == 0:
+            sim.states.server_status = idle
+
+        else:
+            sim.states.people_in_q -= 1
+
+            delay = sim.now() - sim.states.queue[0]
+            sim.states.total_delay += delay
+
+            sim.states.served += 1
+            depart_time = sim.now() + random.expovariate(sim.params.mu)
+            sim.schedule_event(DepartureEvent(depart_time, sim))
+
+            sim.states.queue.pop(0)
 
 
 class Simulator:
     def __init__(self, seed):
+        # eventQ is a min heap, we are pushing events in it, when retrieved, it will give the next earliest event
         self.eventQ = []
         self.simulator_clock = 0
         self.seed = seed
@@ -154,11 +196,13 @@ class Simulator:
             if self.states is not None:
                 self.states.update(self, event)
 
-            print('Time:', event.event_time, 'Event:', event)
+            print('Time:', round(event.event_time, 5), '| Event:', event)
+
             self.simulator_clock = event.event_time
             event.process(self)
 
         self.states.finish(self)
+        print()
 
     def print_results(self):
         self.states.print_results(self)
@@ -198,3 +242,19 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+'''
+start-event will schedule the 1st arrival-event
+arrival-events process will schedule a departure-event for itself
+
+the events have process of their own
+the states has update
+
+an event is extracted from the heap
+then states update is called using that event
+then process of that event is called
+
+what i need now: 
+1. find a place to schedule arrival-departure
+2. find a place to update the params
+'''
