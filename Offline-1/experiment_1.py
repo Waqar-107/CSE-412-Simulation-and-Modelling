@@ -2,10 +2,17 @@
 
 import heapq
 import random
+import math
+from lcgrand import *
+
+
+def exponential(mean):
+    return -(1 / mean) * math.log(lcgrand(1))
+
 
 busy = 1
 idle = 0
-total_targeted_to_serve = 10
+simulation_duration = 10000
 
 
 # Parameters
@@ -29,26 +36,34 @@ class States:
         self.avg_Q_length = 0.0
         self.served = 0
 
+        # others
         self.total_delay = 0.0
         self.total_time_served = 0.0
         self.area_number_in_q = 0.0
         self.people_in_q = 0
         self.server_status = idle
+        self.time_last_event = 0
 
     def update(self, sim, event):
-        time_since_last_event = sim.now() - event.event_time
+        time_since_last_event = sim.now() - self.time_last_event
+        self.time_last_event = sim.now()
 
-        self.area_number_in_q += len(self.queue) * time_since_last_event
+        self.area_number_in_q += self.people_in_q * time_since_last_event
         self.total_time_served += self.server_status * time_since_last_event
 
     # called when there's no event left
     # do the calculations here
     def finish(self, sim):
-        # self.avg_Q_delay = self.total_delay / self.served
-        #
-        # # sim.now() will have the EXIT time
-        # self.util = self.total_time_served / sim.now()
-        None
+        try:
+            self.avg_Q_delay = self.total_delay / self.served
+        except ZeroDivisionError:
+            print("error while determining avg q delay, served 0")
+
+        # sim.now() will have the EXIT time
+        self.util = self.total_time_served / sim.now()
+
+        # average q length
+        self.avg_Q_length = self.area_number_in_q / sim.now()
 
     def print_results(self, sim):
         # DO NOT CHANGE THESE LINES
@@ -60,9 +75,6 @@ class States:
 
     def get_results(self, sim):
         return self.avg_Q_length, self.avg_Q_delay, self.util
-
-
-# Write more functions if required
 
 
 class Event:
@@ -87,8 +99,11 @@ class StartEvent(Event):
 
     def process(self, sim):
         # the server has started, next there will be an arrival, so we schedule the first arrival here
-        arrival_time = self.event_time + random.expovariate(self.sim.params.lambd)
+        arrival_time = self.event_time + exponential(self.sim.params.lambd)
         self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim))
+
+        # set the exit event here
+        self.sim.schedule_event(ExitEvent(simulation_duration, self.sim))
 
 
 class ExitEvent(Event):
@@ -99,8 +114,7 @@ class ExitEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-        # Complete this function
-        None
+        print("simulation is going to end now. current time:", self.event_time)
 
 
 class ArrivalEvent(Event):
@@ -112,16 +126,12 @@ class ArrivalEvent(Event):
 
     def process(self, sim):
         # schedule next arrival
-        time_next_arrival = self.sim.now() + random.expovariate(self.sim.params.lambd)
-
-        # if the targeted are served then initiate the exit
-        if sim.states.served >= total_targeted_to_serve:
-            sim.schedule_event(ExitEvent(sim.now(), sim))
-            return
+        next_arrival_time = sim.now() + exponential(sim.params.lambd)
+        sim.schedule_event(ArrivalEvent(next_arrival_time, sim))
 
         if sim.states.server_status == busy:
             sim.states.people_in_q += 1
-            sim.states.queue.append(time_next_arrival)
+            sim.states.queue.append(sim.now())
         else:
             delay = 0
             sim.states.total_delay += delay
@@ -130,7 +140,7 @@ class ArrivalEvent(Event):
             sim.states.served += 1
 
             # schedule a departure
-            depart_time = sim.now() + random.expovariate(sim.params.mu)
+            depart_time = sim.now() + exponential(sim.params.mu)
             sim.schedule_event(DepartureEvent(depart_time, sim))
 
 
@@ -152,7 +162,7 @@ class DepartureEvent(Event):
             sim.states.total_delay += delay
 
             sim.states.served += 1
-            depart_time = sim.now() + random.expovariate(sim.params.mu)
+            depart_time = sim.now() + exponential(sim.params.mu)
             sim.schedule_event(DepartureEvent(depart_time, sim))
 
             sim.states.queue.pop(0)
@@ -196,7 +206,7 @@ class Simulator:
             if self.states is not None:
                 self.states.update(self, event)
 
-            print('Time:', round(event.event_time, 5), '| Event:', event)
+            # print('Time:', round(event.event_time, 5), '| Event:', event)
 
             self.simulator_clock = event.event_time
             event.process(self)
@@ -231,6 +241,7 @@ def experiment1():
     seed = 101
     sim = Simulator(seed)
     sim.configure(Params(5.0 / 60, 8.0 / 60, 1), States())
+
     sim.run()
     sim.print_results()
     sim.print_analytical_results()
