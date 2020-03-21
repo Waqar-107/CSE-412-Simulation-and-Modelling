@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 
 def exponential(mean):
-    return random.expovariate(mean)
-    #return -(1 / mean) * math.log(lcgrand(1))
+    #return random.expovariate(mean)
+    return -(1 / mean) * math.log(lcgrand(1))
 
 
 busy = 1
@@ -44,6 +44,8 @@ class States:
         self.area_number_in_q = 0.0
         self.people_in_q = 0
         self.server_status = idle
+        self.server_available = 0
+        self.server_quantity = 0
         self.time_last_event = 0
 
     def update(self, sim, event):
@@ -51,7 +53,9 @@ class States:
         self.time_last_event = sim.now()
 
         self.area_number_in_q += self.people_in_q * time_since_last_event
-        self.total_time_served += self.server_status * time_since_last_event
+
+        if self.server_available < self.server_quantity:
+            self.total_time_served += time_since_last_event
 
     # called when there's no event left
     # do the calculations here
@@ -131,14 +135,16 @@ class ArrivalEvent(Event):
         next_arrival_time = sim.now() + exponential(sim.params.lambd)
         sim.schedule_event(ArrivalEvent(next_arrival_time, sim))
 
-        if sim.states.server_status == busy:
+        # all the servers are busy, so the customer will have to wait in the queue
+        if sim.states.server_available <= 0:
             sim.states.people_in_q += 1
             sim.states.queue.append(sim.now())
         else:
             delay = 0
             sim.states.total_delay += delay
 
-            sim.states.server_status = busy
+            # use a free server
+            sim.states.server_available -= 1
             sim.states.served += 1
 
             # schedule a departure
@@ -155,7 +161,10 @@ class DepartureEvent(Event):
 
     def process(self, sim):
         if len(sim.states.queue) == 0:
-            sim.states.server_status = idle
+            sim.states.server_available += 1
+
+            if sim.states.server_available > sim.params.k:
+                print("error !! server number exceeded total server number")
 
         else:
             sim.states.people_in_q -= 1
@@ -187,6 +196,9 @@ class Simulator:
     def configure(self, params, states):
         self.params = params
         self.states = states
+
+        self.states.server_available = self.params.k
+        self.states.server_quantity = self.params.k
 
     # returns the current time
     def now(self):
@@ -239,47 +251,35 @@ class Simulator:
         print("Server utilization factor", round(server_util_factor, 3))
 
 
-def experiment2():
-    seed = 110
-    mu = 1000.0 / 60
-    ratios = [u / 10.0 for u in range(1, 11)]
+def experiment3():
+    seed = 101
+    lambd = 5.0/60
+    mu = 8.0/60
 
-    avglength = []
-    avgdelay = []
-    util = []
+    for i in range(1, 5, 1):
 
-    for ro in ratios:
         sim = Simulator(seed)
-        sim.configure(Params(mu * ro, mu, 1), States())
+        sim.configure(Params(lambd, mu, i), States())
+
         sim.run()
-
-        length, delay, utl = sim.get_results()
-        avglength.append(length)
-        avgdelay.append(delay)
-        util.append(utl)
-
-    plt.figure(1)
-    plt.subplot(311)
-    plt.plot(ratios, avglength)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Avg Q length')
-
-    plt.subplot(312)
-    plt.plot(ratios, avgdelay)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Avg Q delay (sec)')
-
-    plt.subplot(313)
-    plt.plot(ratios, util)
-    plt.xlabel('Ratio (ro)')
-    plt.ylabel('Util')
-
-    plt.show()
+        sim.print_results()
+        # sim.print_analytical_results()
 
 
 def main():
-    experiment2()
+    experiment3()
 
 
 if __name__ == "__main__":
     main()
+
+'''
+arrival: 
+1. if any of the k servers is free, start service immediately, schedule a departure event for the customer
+2. insert the customer in the queue
+
+depart:
+this event indicates that a customer has been served, now we can do either of the two
+1. if there's none in the queue then make a server available
+2. else take a customer out and serve.
+'''

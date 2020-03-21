@@ -6,13 +6,14 @@ import math
 from lcgrand import *
 
 
-def exponential(mean):
-    return -(1 / mean) * math.log(lcgrand(1))
+def exponential(rate):
+    return random.expovariate(rate)
+    #return -(1 / rate) * math.log(lcgrand(1))
 
 
 busy = 1
 idle = 0
-simulation_duration = 10000
+simulation_duration = 1000000
 
 
 # Parameters
