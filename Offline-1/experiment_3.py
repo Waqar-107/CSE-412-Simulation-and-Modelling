@@ -50,7 +50,7 @@ class States:
         time_since_last_event = sim.now() - self.time_last_event
         self.time_last_event = sim.now()
 
-        self.area_number_in_q += (self.people_in_q * time_since_last_event) / sim.params.k
+        self.area_number_in_q += (self.people_in_q * time_since_last_event)
         self.total_time_served += time_since_last_event * (0 if self.server_available == self.server_quantity else 1)
 
     # called when there's no event left
@@ -74,7 +74,7 @@ class States:
         print('MMk Average queue length: %lf' % self.avg_Q_length)
         print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
-        
+
 
     def get_results(self, sim):
         return self.avg_Q_length, self.avg_Q_delay, self.util
