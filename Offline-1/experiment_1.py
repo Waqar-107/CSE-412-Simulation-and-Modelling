@@ -7,13 +7,13 @@ from lcgrand import *
 
 
 def exponential(rate):
-    return random.expovariate(rate)
-    #return -(1 / rate) * math.log(lcgrand(1))
+    # return random.expovariate(rate)
+    return -(1 / rate) * math.log(lcgrand(1))
 
 
 busy = 1
 idle = 0
-simulation_duration = 1000000
+simulation_duration = 10000
 
 
 # Parameters
@@ -73,6 +73,7 @@ class States:
         print('MMk Average queue length: %lf' % self.avg_Q_length)
         print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
+        print("total time served", self.total_time_served)
 
     def get_results(self, sim):
         return self.avg_Q_length, self.avg_Q_delay, self.util

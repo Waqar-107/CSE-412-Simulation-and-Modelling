@@ -8,12 +8,10 @@ import matplotlib.pyplot as plt
 
 
 def exponential(mean):
-    #return random.expovariate(mean)
+    # return random.expovariate(mean)
     return -(1 / mean) * math.log(lcgrand(1))
 
 
-busy = 1
-idle = 0
 simulation_duration = 10000
 
 
@@ -43,19 +41,17 @@ class States:
         self.total_time_served = 0.0
         self.area_number_in_q = 0.0
         self.people_in_q = 0
-        self.server_status = idle
         self.server_available = 0
         self.server_quantity = 0
         self.time_last_event = 0
+        self.people_had_to_wait_in_q = 0
 
     def update(self, sim, event):
         time_since_last_event = sim.now() - self.time_last_event
         self.time_last_event = sim.now()
 
-        self.area_number_in_q += self.people_in_q * time_since_last_event
-
-        if self.server_available < self.server_quantity:
-            self.total_time_served += time_since_last_event
+        self.area_number_in_q += (self.people_in_q * time_since_last_event) / sim.params.k
+        self.total_time_served += time_since_last_event * (0 if self.server_available == self.server_quantity else 1)
 
     # called when there's no event left
     # do the calculations here
@@ -78,6 +74,7 @@ class States:
         print('MMk Average queue length: %lf' % self.avg_Q_length)
         print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
+        
 
     def get_results(self, sim):
         return self.avg_Q_length, self.avg_Q_delay, self.util
@@ -138,6 +135,7 @@ class ArrivalEvent(Event):
         # all the servers are busy, so the customer will have to wait in the queue
         if sim.states.server_available <= 0:
             sim.states.people_in_q += 1
+            sim.states.people_had_to_wait_in_q += 1
             sim.states.queue.append(sim.now())
         else:
             delay = 0
@@ -220,7 +218,7 @@ class Simulator:
             if self.states is not None:
                 self.states.update(self, event)
 
-            # print('Time:', round(event.event_time, 5), '| Event:', event)
+            #print('Time:', round(event.event_time, 5), '| Event:', event)
 
             self.simulator_clock = event.event_time
             event.process(self)
@@ -253,10 +251,12 @@ class Simulator:
 
 def experiment3():
     seed = 101
-    lambd = 5.0/60
-    mu = 8.0/60
+    lambd = 5.0 / 60
+    mu = 8.0 / 60
 
     for i in range(1, 5, 1):
+        # reset lcgrand
+        reset()
 
         sim = Simulator(seed)
         sim.configure(Params(lambd, mu, i), States())
