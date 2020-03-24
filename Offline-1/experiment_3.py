@@ -47,7 +47,6 @@ class States:
         self.server_quantity = 0
         self.time_last_event = 0
         self.people_had_to_wait_in_q = 0
-        self.server_status = []
 
     def update(self, sim, event):
         time_since_last_event = sim.now() - self.time_last_event
@@ -200,7 +199,6 @@ class Simulator:
 
         self.states.server_available = self.params.k
         self.states.server_quantity = self.params.k
-        self.states.server_status = [lazy] * self.params.k
 
     # returns the current time
     def now(self):
@@ -257,8 +255,15 @@ def experiment3():
     seed = 101
     lambd = 5.0 / 60
     mu = 8.0 / 60
+    server_quantity = 4
 
-    for i in range(1, 5, 1):
+    avg_length = []
+    avg_delay = []
+    util = []
+    
+    servers = [i for i in range(1, server_quantity + 1, 1)]
+    
+    for i in range(1, server_quantity + 1, 1):
         # reset lcgrand
         reset()
 
@@ -267,8 +272,30 @@ def experiment3():
 
         sim.run()
         sim.print_results()
-        # sim.print_analytical_results()
 
+        length, delay, utl = sim.get_results()
+        avg_length.append(length)
+        avg_delay.append(delay)
+        util.append(utl)
+
+    # plot
+    plt.figure(1)
+    plt.subplot(311)
+    plt.plot(servers, avg_length)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Avg Q length')
+
+    plt.subplot(312)
+    plt.plot(servers, avg_delay)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Avg Q delay (sec)')
+
+    plt.subplot(313)
+    plt.plot(servers, util)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Util')
+
+    plt.show()
 
 def main():
     experiment3()
