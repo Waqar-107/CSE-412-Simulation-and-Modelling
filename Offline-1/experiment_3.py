@@ -12,6 +12,8 @@ def exponential(mean):
     return -(1 / mean) * math.log(lcgrand(1))
 
 
+lazy = 0
+busy = 1
 simulation_duration = 10000
 
 
@@ -45,13 +47,14 @@ class States:
         self.server_quantity = 0
         self.time_last_event = 0
         self.people_had_to_wait_in_q = 0
+        self.server_status = []
 
     def update(self, sim, event):
         time_since_last_event = sim.now() - self.time_last_event
         self.time_last_event = sim.now()
 
         self.area_number_in_q += (self.people_in_q * time_since_last_event)
-        self.total_time_served += time_since_last_event * (0 if self.server_available == self.server_quantity else 1)
+        self.total_time_served += time_since_last_event * ((self.server_quantity - self.server_available) / sim.params.k)
 
     # called when there's no event left
     # do the calculations here
@@ -197,6 +200,7 @@ class Simulator:
 
         self.states.server_available = self.params.k
         self.states.server_quantity = self.params.k
+        self.states.server_status = [lazy] * self.params.k
 
     # returns the current time
     def now(self):
