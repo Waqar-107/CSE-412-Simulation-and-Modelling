@@ -43,9 +43,6 @@ class States:
         self.area_number_in_q = 0.0
         self.people_in_q = 0
 
-        self.server_available = 0
-        self.server_quantity = 0
-
         self.time_last_event = 0
         self.server_status = []
 
@@ -53,9 +50,18 @@ class States:
         time_since_last_event = sim.now() - self.time_last_event
         self.time_last_event = sim.now()
 
-        self.area_number_in_q += (self.people_in_q * time_since_last_event)
-        self.total_time_served += time_since_last_event * (
-                (self.server_quantity - self.server_available) / sim.params.k)
+        self.people_in_q = 0
+        for i in range(sim.params.k):
+            self.people_in_q += len(self.queue[i])
+
+        self.area_number_in_q += (self.people_in_q * time_since_last_event) / sim.params.k
+
+        cnt = 0
+        for i in range(sim.params.k):
+            if self.server_status[i] != lazy:
+                cnt += 1
+
+        self.total_time_served += time_since_last_event * (cnt / sim.params.k)
 
     # called when there's no event left
     # do the calculations here
@@ -135,34 +141,36 @@ class ArrivalEvent(Event):
         next_arrival_time = sim.now() + exponential(sim.params.lambd)
         sim.schedule_event(ArrivalEvent(next_arrival_time, sim))
 
+        # process this arrival event
         # find a lazy server
         for i in range(sim.params.k):
             if sim.states.server_status[i] == lazy:
                 delay = 0
                 sim.states.total_delay += delay
 
-                # make the server busy, we assign the event time so that we
-                # can track we server got free and from which queue we will serve
-                sim.states.server_status[i] = self.event_time
-                sim.states.served += 1
-
                 # schedule a departure
+                # print(i, "th server is free. scheduled a depart")
                 depart_time = sim.now() + exponential(sim.params.mu)
                 sim.schedule_event(DepartureEvent(depart_time, sim))
+
+                # make the server busy. here we assign the departure time so that we
+                # can track which server got free and from which queue we will serve
+                sim.states.server_status[i] = depart_time
+                sim.states.served += 1
 
                 return
 
         # no lazy server found :(
         # now find the shortest queue, if there are more than one then select the leftmost one
         idx = 0
-        mn = len(sim.states.queu[0])
+        mn = len(sim.states.queue[0])
 
         for i in range(1, sim.params.k, 1):
             if len(sim.states.queue[i]) < mn:
                 mn = len(sim.states.queue[i])
                 idx = i
 
-        sim.states.queue[idx].append(sim.now())
+        sim.states.queue[idx].append(self.event_time)
 
 
 class DepartureEvent(Event):
@@ -173,23 +181,47 @@ class DepartureEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-        if len(sim.states.queue) == 0:
-            sim.states.server_available += 1
 
-            if sim.states.server_available > sim.params.k:
-                print("error !! server number exceeded total server number")
+        # find the server that was giving service
+        for i in range(sim.params.k):
+            if self.event_time == sim.states.server_status[i]:
+                sim.states.server_status[i] = lazy
+                break
 
-        else:
-            sim.states.people_in_q -= 1
+        for i in range(sim.params.k):
+            if len(sim.states.queue[i]):
+                t = sim.states.queue[i].pop(0)
+                sim.states.total_delay += sim.now() - t
 
-            delay = sim.now() - sim.states.queue[0]
-            sim.states.total_delay += delay
+                # schedule a departure
+                depart_time = sim.now() + exponential(sim.params.mu)
+                sim.schedule_event(DepartureEvent(depart_time, sim))
 
-            sim.states.served += 1
-            depart_time = sim.now() + exponential(sim.params.mu)
-            sim.schedule_event(DepartureEvent(depart_time, sim))
+                # make the server busy. here we assign the departure time so that we
+                # can track which server got free and from which queue we will serve
+                sim.states.server_status[i] = depart_time
+                sim.states.served += 1
 
-            sim.states.queue.pop(0)
+        # change of queue
+        while True:
+            flag = False
+            for i in range(sim.params.k):
+                # if LF-L >= 2 then move to left
+                if i - 1 >= 0:
+                    while len(sim.states.queue[i]) - len(sim.states.queue[i - 1]) >= 2:
+                        x = sim.states.queue[i].pop()
+                        sim.states.queue[i - 1].append(x)
+                        flag = True
+
+                # if Rf-L >= 2 then move to right
+                if i + 1 < sim.params.k:
+                    while len(sim.states.queue[i]) - len(sim.states.queue[i + 1]) >= 2:
+                        x = sim.states.queue[i].pop()
+                        sim.states.queue[i + 1].append(x)
+                        flag = True
+
+            if not flag:
+                break
 
 
 class Simulator:
@@ -285,32 +317,32 @@ def experiment4():
         sim = Simulator(seed)
         sim.configure(Params(lambd, mu, i), States())
 
-        # sim.run()
-        # sim.print_results()
-        #
-        # length, delay, utl = sim.get_results()
-        # avg_length.append(length)
-        # avg_delay.append(delay)
-        # util.append(utl)
+        sim.run()
+        sim.print_results()
+
+        length, delay, utl = sim.get_results()
+        avg_length.append(length)
+        avg_delay.append(delay)
+        util.append(utl)
 
     # plot
-    # plt.figure(1)
-    # plt.subplot(311)
-    # plt.plot(servers, avg_length)
-    # plt.xlabel('Server (k)')
-    # plt.ylabel('Avg Q length')
-    #
-    # plt.subplot(312)
-    # plt.plot(servers, avg_delay)
-    # plt.xlabel('Server (k)')
-    # plt.ylabel('Avg Q delay (sec)')
-    #
-    # plt.subplot(313)
-    # plt.plot(servers, util)
-    # plt.xlabel('Server (k)')
-    # plt.ylabel('Util')
+    plt.figure(1)
+    plt.subplot(311)
+    plt.plot(servers, avg_length)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Avg Q length')
 
-    # plt.show()
+    plt.subplot(312)
+    plt.plot(servers, avg_delay)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Avg Q delay (sec)')
+
+    plt.subplot(313)
+    plt.plot(servers, util)
+    plt.xlabel('Server (k)')
+    plt.ylabel('Util')
+
+    plt.show()
 
 
 def main():
