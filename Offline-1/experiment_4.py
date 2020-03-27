@@ -54,7 +54,7 @@ class States:
         for i in range(sim.params.k):
             self.people_in_q += len(self.queue[i])
 
-        self.area_number_in_q += (self.people_in_q * time_since_last_event) / sim.params.k
+        self.area_number_in_q += (self.people_in_q / sim.params.k) * time_since_last_event
 
         cnt = 0
         for i in range(sim.params.k):
@@ -149,7 +149,6 @@ class ArrivalEvent(Event):
                 sim.states.total_delay += delay
 
                 # schedule a departure
-                # print(i, "th server is free. scheduled a depart")
                 depart_time = sim.now() + exponential(sim.params.mu)
                 sim.schedule_event(DepartureEvent(depart_time, sim))
 
@@ -189,7 +188,7 @@ class DepartureEvent(Event):
                 break
 
         for i in range(sim.params.k):
-            if len(sim.states.queue[i]):
+            if sim.states.server_status[i] == lazy and len(sim.states.queue[i]):
                 t = sim.states.queue[i].pop(0)
                 sim.states.total_delay += sim.now() - t
 
