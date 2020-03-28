@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 
 def exponential(mean):
-    # return random.expovariate(mean)
     return -(1 / mean) * math.log(lcgrand(1))
 
 
@@ -182,45 +181,64 @@ class DepartureEvent(Event):
     def process(self, sim):
 
         # find the server that was giving service
+        server_no = -1
         for i in range(sim.params.k):
             if self.event_time == sim.states.server_status[i]:
                 sim.states.server_status[i] = lazy
+                server_no = i
+
+                # check if there is someone in the q
+                if len(sim.states.queue[i]):
+                    t = sim.states.queue[i].pop(0)
+                    sim.states.total_delay += sim.now() - t
+
+                    # schedule a departure
+                    depart_time = sim.now() + exponential(sim.params.mu)
+                    sim.schedule_event(DepartureEvent(depart_time, sim))
+
+                    # make the server busy. here we assign the departure time so that we
+                    # can track which server got free and from which queue we will serve
+                    sim.states.server_status[i] = depart_time
+                    sim.states.served += 1
+                else:
+                    # check if i-1 or i+1 has anyone in the q
+                    if i - 1 >= 0 and len(sim.states.queue[i - 1]):
+                        t = sim.states.queue[i - 1].pop()
+                        sim.states.total_delay += sim.now() - t
+
+                        # schedule a departure
+                        depart_time = sim.now() + exponential(sim.params.mu)
+                        sim.schedule_event(DepartureEvent(depart_time, sim))
+
+                        # make the server busy. here we assign the departure time so that we
+                        # can track which server got free and from which queue we will serve
+                        sim.states.server_status[i] = depart_time
+                        sim.states.served += 1
+                    elif i + 1 > sim.params.k and len(sim.states.queue[i + 1]):
+                        t = sim.states.queue[i + 1].pop()
+                        sim.states.total_delay += sim.now() - t
+
+                        # schedule a departure
+                        depart_time = sim.now() + exponential(sim.params.mu)
+                        sim.schedule_event(DepartureEvent(depart_time, sim))
+
+                        # make the server busy. here we assign the departure time so that we
+                        # can track which server got free and from which queue we will serve
+                        sim.states.server_status[i] = depart_time
+                        sim.states.served += 1
+
                 break
 
-        for i in range(sim.params.k):
-            if sim.states.server_status[i] == lazy and len(sim.states.queue[i]):
-                t = sim.states.queue[i].pop(0)
-                sim.states.total_delay += sim.now() - t
+        if server_no != -1:
+            if server_no - 1 >= 0 and len(sim.states.queue[server_no - 1]):
+                while len(sim.states.queue[server_no - 1]) - len(sim.states.queue[server_no]) >= 2:
+                    x = sim.states.queue[server_no - 1].pop()
+                    sim.states.queue[server_no].append(x)
 
-                # schedule a departure
-                depart_time = sim.now() + exponential(sim.params.mu)
-                sim.schedule_event(DepartureEvent(depart_time, sim))
-
-                # make the server busy. here we assign the departure time so that we
-                # can track which server got free and from which queue we will serve
-                sim.states.server_status[i] = depart_time
-                sim.states.served += 1
-
-        # change of queue
-        while True:
-            flag = False
-            for i in range(sim.params.k):
-                # if LF-L >= 2 then move to left
-                if i - 1 >= 0:
-                    while len(sim.states.queue[i]) - len(sim.states.queue[i - 1]) >= 2:
-                        x = sim.states.queue[i].pop()
-                        sim.states.queue[i - 1].append(x)
-                        flag = True
-
-                # if Rf-L >= 2 then move to right
-                if i + 1 < sim.params.k:
-                    while len(sim.states.queue[i]) - len(sim.states.queue[i + 1]) >= 2:
-                        x = sim.states.queue[i].pop()
-                        sim.states.queue[i + 1].append(x)
-                        flag = True
-
-            if not flag:
-                break
+            if server_no + 1 < sim.params.k and len(sim.states.queue[server_no + 1]):
+                while len(sim.states.queue[server_no + 1]) - len(sim.states.queue[server_no]) >= 2:
+                    x = sim.states.queue[server_no + 1].pop()
+                    sim.states.queue[server_no].append(x)
 
 
 class Simulator:
