@@ -46,8 +46,8 @@ class States:
         self.server_status = []
 
     def update(self, sim, event):
-        time_since_last_event = sim.now() - self.time_last_event
-        self.time_last_event = sim.now()
+        time_since_last_event = event.event_time - self.time_last_event
+        self.time_last_event = event.event_time
 
         self.people_in_q = 0
         for i in range(sim.params.k):
@@ -190,7 +190,7 @@ class DepartureEvent(Event):
                 # check if there is someone in the q
                 if len(sim.states.queue[i]):
                     t = sim.states.queue[i].pop(0)
-                    sim.states.total_delay += sim.now() - t
+                    sim.states.total_delay += self.event_time - t
 
                     # schedule a departure
                     depart_time = sim.now() + exponential(sim.params.mu)
@@ -200,33 +200,6 @@ class DepartureEvent(Event):
                     # can track which server got free and from which queue we will serve
                     sim.states.server_status[i] = depart_time
                     sim.states.served += 1
-                else:
-                    # check if i-1 or i+1 has anyone in the q
-                    if i - 1 >= 0 and len(sim.states.queue[i - 1]):
-                        t = sim.states.queue[i - 1].pop()
-                        sim.states.total_delay += sim.now() - t
-
-                        # schedule a departure
-                        depart_time = sim.now() + exponential(sim.params.mu)
-                        sim.schedule_event(DepartureEvent(depart_time, sim))
-
-                        # make the server busy. here we assign the departure time so that we
-                        # can track which server got free and from which queue we will serve
-                        sim.states.server_status[i] = depart_time
-                        sim.states.served += 1
-                    elif i + 1 > sim.params.k and len(sim.states.queue[i + 1]):
-                        t = sim.states.queue[i + 1].pop()
-                        sim.states.total_delay += sim.now() - t
-
-                        # schedule a departure
-                        depart_time = sim.now() + exponential(sim.params.mu)
-                        sim.schedule_event(DepartureEvent(depart_time, sim))
-
-                        # make the server busy. here we assign the departure time so that we
-                        # can track which server got free and from which queue we will serve
-                        sim.states.server_status[i] = depart_time
-                        sim.states.served += 1
-
                 break
 
         if server_no != -1:
@@ -239,6 +212,23 @@ class DepartureEvent(Event):
                 while len(sim.states.queue[server_no + 1]) - len(sim.states.queue[server_no]) >= 2:
                     x = sim.states.queue[server_no + 1].pop()
                     sim.states.queue[server_no].append(x)
+
+        # check if you can serve after q change
+        for i in range(sim.params.k):
+            if sim.states.server_status[i] == lazy:
+                # check if there is someone in the q
+                if len(sim.states.queue[i]):
+                    t = sim.states.queue[i].pop(0)
+                    sim.states.total_delay += self.event_time - t
+
+                    # schedule a departure
+                    depart_time = sim.now() + exponential(sim.params.mu)
+                    sim.schedule_event(DepartureEvent(depart_time, sim))
+
+                    # make the server busy. here we assign the departure time so that we
+                    # can track which server got free and from which queue we will serve
+                    sim.states.server_status[i] = depart_time
+                    sim.states.served += 1
 
 
 class Simulator:
@@ -262,7 +252,10 @@ class Simulator:
         self.states.server_available = self.params.k
         self.states.server_quantity = self.params.k
         self.states.server_status = [lazy] * self.params.k
-        self.states.queue = [[]] * self.params.k
+
+        self.states.queue = []
+        for i in range(self.params.k):
+            self.states.queue.append([])
 
     # returns the current time
     def now(self):

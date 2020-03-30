@@ -49,8 +49,8 @@ class States:
         self.people_had_to_wait_in_q = 0
 
     def update(self, sim, event):
-        time_since_last_event = sim.now() - self.time_last_event
-        self.time_last_event = sim.now()
+        time_since_last_event = event.event_time - self.time_last_event
+        self.time_last_event = event.event_time
 
         self.area_number_in_q += (self.people_in_q * time_since_last_event)
         self.total_time_served += time_since_last_event * ((self.server_quantity - self.server_available) / sim.params.k)

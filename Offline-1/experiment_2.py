@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 
 def exponential(mean):
-    return random.expovariate(mean)
-    #return -(1 / mean) * math.log(lcgrand(1))
+    # return random.expovariate(mean)
+    return -(1 / mean) * math.log(lcgrand(1))
 
 
 busy = 1
@@ -47,8 +47,8 @@ class States:
         self.time_last_event = 0
 
     def update(self, sim, event):
-        time_since_last_event = sim.now() - self.time_last_event
-        self.time_last_event = sim.now()
+        time_since_last_event = event.event_time - self.time_last_event
+        self.time_last_event = event.event_time
 
         self.area_number_in_q += self.people_in_q * time_since_last_event
         self.total_time_served += self.server_status * time_since_last_event
