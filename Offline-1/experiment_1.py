@@ -49,8 +49,6 @@ class States:
         time_since_last_event = event.event_time - self.time_last_event
         self.time_last_event = event.event_time
 
-        # print(sim.now(), event.event_time)
-
         self.area_number_in_q += self.people_in_q * time_since_last_event
         self.total_time_served += self.server_status * time_since_last_event
 
@@ -187,7 +185,7 @@ class Simulator:
     # adds the parameters like mu and lambda, a states object is initiated
     def configure(self, params, states):
         self.params = params
-        self.states = states
+        self.states = states    # state()
 
     # returns the current time
     def now(self):
@@ -258,17 +256,25 @@ if __name__ == "__main__":
     main()
 
 '''
-start-event will schedule the 1st arrival-event
-arrival-events process will schedule a departure-event for itself
+Start-Event:
+----------------
+1. start of everything, we will schedule the first Arrival-event here and also schedule the Exit-Event.
 
-the events have process of their own
-the states has update
+Arrival-Event: 
+----------------
+1. If the server is busy, put this in the queue. Store the arrival-time in the queue actually.
+2. If the server is idle then start serving. Schedule a Departure-Event for this Arrival-Event.
 
-an event is extracted from the heap
-then states update is called using that event
-then process of that event is called
+Departure-Event:
+----------------
+1. If the queue is empty then nothing to do. The calculation of this departure has been already done when it was 
+   scheduled.
+2. If the queue is not empty then take the one in the front of the queue and start serving it. 
+   Calculate things for it and schedule a Departure-Event for this.
+   
+Simulate: Start-0, Arrival_one-1, Arrival_two-3, Departure_one-5, Departure_two-tbd
 
-what i need now: 
-1. find a place to schedule arrival-departure
-2. find a place to update the params
+avg_delay = total_delay / total_served; delay per person
+utilization = total_time_served / total_time;
+avg_q_len = area_num_in_q / total_time;  not sure about the area 
 '''
