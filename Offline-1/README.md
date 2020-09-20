@@ -1,6 +1,3 @@
 # CSE-412-Simulation-and-Modelling
 
-single-server queue simulation
-
-customer arrives
-if the server is busy then joins the fifo
+https://stackoverflow.com/questions/8592048/is-random-expovariate-equivalent-to-a-poisson-process

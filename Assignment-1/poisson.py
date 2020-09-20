@@ -38,6 +38,7 @@ while True:
 for i in range(M):
     Fx[i] *= np.exp(-lamb)
 
+
 plt.figure(1)
 plt.plot(X, Fx)
 # -------------------------------------

@@ -214,7 +214,6 @@ class Simulator:
             event.process(self)
 
         self.states.finish(self)
-        print()
 
     def print_results(self):
         self.states.print_results(self)
@@ -249,6 +248,9 @@ def experiment2():
     util = []
 
     for ro in ratios:
+        # reset lcgrand
+        reset()
+
         sim = Simulator(seed)
         sim.configure(Params(mu * ro, mu, 1), States())
         sim.run()
@@ -283,3 +285,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+'''
+mu is given, for different values of rho, calculate lambda and run experiment-1
+'''

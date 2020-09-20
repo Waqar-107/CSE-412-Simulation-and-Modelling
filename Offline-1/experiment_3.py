@@ -53,7 +53,8 @@ class States:
         self.time_last_event = event.event_time
 
         self.area_number_in_q += (self.people_in_q * time_since_last_event)
-        self.total_time_served += time_since_last_event * ((self.server_quantity - self.server_available) / sim.params.k)
+        self.total_time_served += time_since_last_event * (
+                    (self.server_quantity - self.server_available) / sim.params.k)
 
     # called when there's no event left
     # do the calculations here
@@ -76,7 +77,6 @@ class States:
         print('MMk Average queue length: %lf' % self.avg_Q_length)
         print('MMk Average customer delay in queue: %lf' % self.avg_Q_delay)
         print('MMk Time-average server utility: %lf' % self.util)
-
 
     def get_results(self, sim):
         return self.avg_Q_length, self.avg_Q_delay, self.util
@@ -220,7 +220,7 @@ class Simulator:
             if self.states is not None:
                 self.states.update(self, event)
 
-            #print('Time:', round(event.event_time, 5), '| Event:', event)
+            # print('Time:', round(event.event_time, 5), '| Event:', event)
 
             self.simulator_clock = event.event_time
             event.process(self)
@@ -260,9 +260,9 @@ def experiment3():
     avg_length = []
     avg_delay = []
     util = []
-    
+
     servers = [i for i in range(1, server_quantity + 1, 1)]
-    
+
     for i in range(1, server_quantity + 1, 1):
         # reset lcgrand
         reset()
@@ -297,6 +297,7 @@ def experiment3():
 
     plt.show()
 
+
 def main():
     experiment3()
 
@@ -305,6 +306,8 @@ if __name__ == "__main__":
     main()
 
 '''
+K servers, 1 queue
+
 arrival: 
 1. if any of the k servers is free, start service immediately, schedule a departure event for the customer
 2. insert the customer in the queue
