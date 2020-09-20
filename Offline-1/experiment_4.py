@@ -179,7 +179,6 @@ class DepartureEvent(Event):
         self.sim = sim
 
     def process(self, sim):
-
         # find the server that was giving service
         server_no = -1
         for i in range(sim.params.k):
