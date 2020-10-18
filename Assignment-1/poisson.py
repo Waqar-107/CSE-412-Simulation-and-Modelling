@@ -11,7 +11,7 @@ Method:
     4.4. update the frequency of x (frequency[x]++)
 5. divide each frequency by N
 6. plot X[] vs Px[]
-7. plot X[] vs frequency[]
+7. plot X[] vs frequency[]/N
 """
 
 import numpy as np
@@ -56,9 +56,6 @@ while True:
 for i in range(M):
     Fx[i] = np.round(np.exp(-lamb) * Fx[i], 5)
 
-# plot pdf
-plt.figure(1)
-plt.plot(X, Px)
 # -------------------------------------
 
 # -------------------------------------
@@ -74,11 +71,22 @@ for i in range(N + 1):
 for i in range(M):
     frequency[i] /= 1000
 
-# plot X vs frequency/N
-plt.plot(X, frequency)
-plt.legend(["X vs P(x)", "X vs Frequency/N"])
+# plot pdf
+plt.figure(1)
+plt.subplot(211)
+w = 0.6
+plt.bar(X , Px, width=w)
+plt.legend(["Px vs X, theoretical"])
 
-plt.xlabel('X')
-plt.ylabel('Frequency/N')
+# plot frequency/N
+plt.subplot(212)
+plt.bar(X, frequency, width=w)
+plt.legend(["frequency/N vs X, experimental"])
+
+# plot both the graph to compare between them
+plt.figure(2)
+plt.bar(np.array(X), Px, width=w/2)
+plt.bar(np.array(X) + w / 2, frequency, width=w/2)
+plt.legend(["Px vs X, theoretical", "frequency/N vs X, experimental"])
 plt.show()
 # -------------------------------------

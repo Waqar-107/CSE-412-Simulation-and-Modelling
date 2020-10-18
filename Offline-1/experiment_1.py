@@ -13,7 +13,7 @@ def exponential(rate):
 
 busy = 1
 idle = 0
-simulation_duration = 10000
+simulation_duration = 100000
 
 
 # Parameters
