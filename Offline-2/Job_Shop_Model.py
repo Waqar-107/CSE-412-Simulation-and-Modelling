@@ -176,13 +176,15 @@ class ArrivalEvent(Event):
 
         # now lets process the current arrival
         station = station_routing["job" + str(self.job_type)][self.current_station]
+        # print("vis", station, "job:", self.job_type)
         if sim.states.servers_busy[station] == number_of_machines[station]:
             sim.states.queue[station].append(self)
         else:
             sim.states.servers_busy[station] += 1
+            assert (0 <= sim.states.servers_busy[station] <= number_of_machines[station])
 
             # schedule a departure
-            e = erlang(mean_service_time["job" + str(self.job_type)][self.current_station - 1])
+            e = erlang(mean_service_time["job" + str(self.job_type)][self.current_station])
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, self.job_type, self.current_station))
 
@@ -197,6 +199,7 @@ class DepartureEvent(Event):
         self.current_station = current_station
 
     def process(self, sim):
+        # find the station where this event was taking service
         station = station_routing["job" + str(self.job_type)][self.current_station]
 
         # this station served a job!
@@ -209,11 +212,14 @@ class DepartureEvent(Event):
             self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, self.job_type, self.current_station + 1))
         else:
             self.sim.states.job_cnt[self.job_type] += 1
+            assert (0 <= sim.states.servers_busy[station] <= number_of_machines[station])
 
-        # now check the current station
+        # now check the queue of the station where this event was
         # if someone is in the queue then schedule departure for that job
         if len(self.sim.states.queue[station]) == 0:
             self.sim.states.servers_busy[station] -= 1
+            assert (0 <= sim.states.servers_busy[station] <= number_of_machines[station])
+
         else:
             ev = self.sim.states.queue[station].pop(0)
             delay = self.sim.now() - ev.event_time
@@ -223,6 +229,8 @@ class DepartureEvent(Event):
 
             # schedule a departure
             e = erlang(mean_service_time["job" + str(ev.job_type)][ev.current_station])
+            assert(station_routing["job" + str(ev.job_type)][ev.current_station] == station)
+
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, ev.job_type, ev.current_station))
 
