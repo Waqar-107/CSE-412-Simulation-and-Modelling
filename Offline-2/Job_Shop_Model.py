@@ -3,6 +3,7 @@
 import heapq
 from collections import defaultdict
 import numpy as np
+import random
 
 # -------------------------------------
 # variables
@@ -20,10 +21,11 @@ mean_service_time = defaultdict(list)
 simulation_duration = 1000
 simulation_hours = 8
 precision = 3
+simulation_day = 30
 
 
 def expon(mean):
-    return np.random.exponential(mean)
+    return random.expovariate(1 / mean)
 
 
 def erlang(mean):
@@ -98,23 +100,8 @@ class States:
         for i in range(1, number_of_stations + 1, 1):
             self.avg_number_in_q[i] = self.area_number_in_q[i] / sim.now()
 
-    def report(self):
-        sp = " " * 10
-
-        result = open("job_shop_output.txt", "w")
-
-        result.write("Average total delay in queue for each jobs\n")
-        result.write("job" + sp + "Average total delay in queue\n")
-        for i in range(1, job_types + 1, 1):
-            result.write(str(i) + sp + "  " + str(round(self.avg_delay_in_job[i], precision)) + "\n")
-
-        result.write("\nOverall average delay: " + str(round(self.overall_avg_delay, precision)) + "\n")
-        result.write("Average number of jobs: " + str(round(self.average_number_of_jobs, precision)) + "\n\n")
-
-        result.write("Work Station" + sp + "Average queue length" + sp + "Average delay in queue\n")
-        for i in range(1, number_of_stations + 1, 1):
-            result.write(str(i) + sp * 2 + str(round(self.avg_number_in_q[i], precision)) + sp * 2 + str(
-                round(self.average_delay_in_q[i], 3)) + "\n")
+        return self.avg_delay_in_job, self.overall_avg_delay, self.average_number_of_jobs, self.avg_number_in_q, \
+            self.average_delay_in_q
 
 
 class Event:
@@ -176,7 +163,6 @@ class ArrivalEvent(Event):
 
         # now lets process the current arrival
         station = station_routing["job" + str(self.job_type)][self.current_station]
-        # print("vis", station, "job:", self.job_type)
         if sim.states.servers_busy[station] == number_of_machines[station]:
             sim.states.queue[station].append(self)
         else:
@@ -229,17 +215,16 @@ class DepartureEvent(Event):
 
             # schedule a departure
             e = erlang(mean_service_time["job" + str(ev.job_type)][ev.current_station])
-            assert(station_routing["job" + str(ev.job_type)][ev.current_station] == station)
+            assert (station_routing["job" + str(ev.job_type)][ev.current_station] == station)
 
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, ev.job_type, ev.current_station))
 
 
 class Simulator:
-    def __init__(self, seed):
+    def __init__(self):
         self.eventQ = []
         self.simulator_clock = 0
-        self.seed = seed
         self.states = States()
 
     def initialize(self):
@@ -253,7 +238,6 @@ class Simulator:
         heapq.heappush(self.eventQ, (event.event_time, event))
 
     def run(self):
-        np.random.seed(self.seed)
         self.initialize()
 
         while len(self.eventQ) > 0:
@@ -267,8 +251,7 @@ class Simulator:
             self.simulator_clock = event.event_time
             event.process(self)
 
-        self.states.finish(self)
-        self.states.report()
+        return self.states.finish(self)
 
 
 def read_input():
@@ -310,8 +293,57 @@ def job_shop_model():
     read_input()
 
     seed = 107
-    sim = Simulator(seed)
-    sim.run()
+    random.seed(seed)
+    np.random.seed(seed)
+
+    avg_delay_in_job = [0] * (job_types + 1)
+    avg_number_in_q = [0] * (number_of_stations + 1)
+    overall_avg_delay = 0.0
+    average_number_of_jobs = 0
+    average_delay_in_q = [0] * (number_of_stations + 1)
+
+    # run simulation for 30 times
+    for i in range(simulation_day):
+        sim = Simulator()
+        delay_in_job, overall_delay, number_of_jobs, number_in_q, delay_in_q = sim.run()
+
+        for j in range(1, job_types + 1, 1):
+            avg_delay_in_job[j] += delay_in_job[j]
+
+        overall_avg_delay += overall_delay
+        average_number_of_jobs += number_of_jobs
+
+        for j in range(1, number_of_stations + 1, 1):
+            avg_number_in_q[j] += number_in_q[j]
+            average_delay_in_q[j] += delay_in_q[j]
+
+    # determine average
+    for j in range(1, job_types + 1, 1):
+        avg_delay_in_job[j] /= simulation_day
+
+    overall_avg_delay /= simulation_day
+    average_number_of_jobs /= simulation_day
+
+    for j in range(1, number_of_stations + 1, 1):
+        avg_number_in_q[j] /= simulation_day
+        average_delay_in_q[j] /= simulation_day
+
+    # generate report
+    sp = " " * 10
+    result = open("job_shop_output.txt", "w")
+
+    result.write("Average total delay in queue for each jobs\n")
+    result.write("job" + sp + "Average total delay in queue\n")
+    for i in range(1, job_types + 1, 1):
+        result.write(str(i) + sp + "  " + str(round(avg_delay_in_job[i], precision)) + "\n")
+
+    result.write("\nOverall average delay: " + str(round(overall_avg_delay, precision)) + "\n")
+    result.write("Average number of jobs: " + str(round(average_number_of_jobs, precision)) + "\n\n")
+
+    result.write("Work Station" + sp + "Average queue length" + sp + "Average delay in queue\n")
+    for i in range(1, number_of_stations + 1, 1):
+        result.write(str(i) + sp * 2 + str(round(avg_number_in_q[i], precision)) + sp * 2 + str(
+            round(average_delay_in_q[i], 3)) + "\n")
 
 
 if __name__ == "__main__":
