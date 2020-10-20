@@ -21,7 +21,7 @@ mean_service_time = defaultdict(list)
 simulation_duration = 1000
 simulation_hours = 8
 precision = 3
-simulation_day = 30
+simulation_day = 1
 
 
 def expon(mean):
