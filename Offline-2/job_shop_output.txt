@@ -1,15 +1,15 @@
 Average total delay in queue for each jobs
 job          Average total delay in queue
-1            0.793
-2            0.347
-3            0.832
+1            0.787
+2            0.505
+3            0.896
 
-Overall average delay: 0.578
-Average number of jobs: 11.004
+Overall average delay: 0.668
+Average number of jobs: 11.29
 
 Work Station          Average queue length          Average delay in queue
-1                    1.006                    0.289
-2                    1.129                    0.611
-3                    0.196                    0.061
-4                    0.394                    0.158
-5                    0.242                    0.181
+1                    0.944                    0.28
+2                    1.214                    0.656
+3                    0.09                    0.025
+4                    1.07                    0.431
+5                    0.294                    0.206

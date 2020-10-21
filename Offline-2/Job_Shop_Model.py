@@ -3,7 +3,6 @@
 import heapq
 from collections import defaultdict
 import math
-import numpy as np
 from lcgrand import *
 
 # -------------------------------------
@@ -85,7 +84,7 @@ class States:
         self.avg_number_of_jobs = 0
         self.avg_delay_in_q = [0] * (number_of_stations + 1)
 
-    def update(self, sim, event):
+    def update(self, event):
         time_since_last_event = event.event_time - self.time_last_event
         self.time_last_event = event.event_time
 
@@ -265,7 +264,7 @@ class Simulator:
                 break
 
             if self.states is not None:
-                self.states.update(self, event)
+                self.states.update(event)
 
             self.simulator_clock = event.event_time
             event.process(self)
@@ -310,7 +309,6 @@ def read_input():
 
 def job_shop_model():
     read_input()
-    np.random.seed(107)
 
     # -----------------------------------------------------
     # variables to hold the metric
