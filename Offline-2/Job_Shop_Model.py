@@ -2,8 +2,9 @@
 
 import heapq
 from collections import defaultdict
+import math
 import numpy as np
-import random
+from lcgrand import *
 
 # -------------------------------------
 # variables
@@ -18,26 +19,42 @@ mean_service_time = defaultdict(list)
 
 # -------------------------------------
 # constants
+STREAM_INTER_ARRIVAL = 1
+STREAM_JOB_TYPE = 2
+STREAM_SERVICE = 3
+
 simulation_length = 1
 simulation_hours = 8
 precision = 3
 simulation_itr = 30
 
 
-def expon(mean):
-    return random.expovariate(1 / mean)
+def expon(mean, stream):
+    return -mean * math.log(lcgrand(stream))
 
 
-def erlang(mean):
-    y1 = expon(mean / 2)
-    y2 = expon(mean / 2)
+def erlang(m, mean, stream):
+    mean_exponential = mean / m
+    summation = 0.0
 
-    return y1 + y2
+    i = 1
+    while i <= m:
+        summation += expon(mean_exponential, stream)
+        i += 1
+
+    return summation
 
 
-def random_integer(probability_distribution):
-    arr = [i for i in range(1, job_types + 1, 1)]
-    return np.random.choice(arr, p=probability_distribution)
+def random_integer(probability_distribution, stream):
+    u = lcgrand(stream)
+
+    cnt = 0
+    for idx in range(len(probability_distribution)):
+        cnt += probability_distribution[idx]
+        if u < cnt:
+            return idx + 1
+
+    return len(probability_distribution)
 
 
 # States and statistical counters
@@ -46,14 +63,9 @@ class States:
         self.queue = [[] for _ in range(number_of_stations + 1)]
         self.servers_busy = [0] * (number_of_stations + 1)
 
-        # avg delay in each station
         self.served = [0] * (number_of_stations + 1)
-        self.avg_q_delay = [0] * (number_of_stations + 1)
+        self.avg_delay_in_q = [0] * (number_of_stations + 1)
 
-        # delay for each job type and overall job delay
-        # for each type of job if delay found add in the  corresponding arrays
-        # when the job finishes all the task, increase the cnt and add the total delay in the array
-        self.job_delay = [0] * (job_types + 1)
         self.job_cnt = [0] * (job_types + 1)
         self.current_jobs_in_system = 0
 
@@ -88,7 +100,7 @@ class States:
         # calculate avg delay in queue for each of the jobs
         for i in range(1, job_types + 1, 1):
             if self.job_cnt[i]:
-                self.avg_delay_in_job[i] = self.job_delay[i] / self.job_cnt[i]
+                self.avg_delay_in_job[i] /= self.job_cnt[i]
 
         # overall delay for jobs
         self.overall_avg_delay = 0
@@ -101,13 +113,13 @@ class States:
         # avg delay in each q
         for i in range(1, number_of_stations + 1, 1):
             if self.served[i]:
-                self.avg_delay_in_q[i] = self.avg_q_delay[i] / self.served[i]
+                self.avg_delay_in_q[i] /= self.served[i]
 
         for i in range(1, number_of_stations + 1, 1):
             self.avg_number_in_q[i] = self.area_number_in_q[i] / sim.now()
 
         return self.avg_delay_in_job, self.overall_avg_delay, self.avg_number_of_jobs, self.avg_number_in_q, \
-               self.avg_delay_in_q
+            self.avg_delay_in_q
 
 
 class Event:
@@ -132,8 +144,8 @@ class StartEvent(Event):
 
     def process(self, sim):
         # schedule the first arrival
-        arrival_time = self.event_time + expon(inter_arrival_mean)
-        job_type = random_integer(job_probabilities[1:])
+        arrival_time = self.event_time + expon(inter_arrival_mean, STREAM_INTER_ARRIVAL)
+        job_type = random_integer(job_probabilities[1:], STREAM_JOB_TYPE)
         self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, job_type, 1))
 
         # schedule the exit
@@ -166,8 +178,8 @@ class ArrivalEvent(Event):
             self.sim.states.job_cnt[self.job_type] += 1
             self.sim.states.current_jobs_in_system += 1
 
-            arrival_time = self.sim.now() + expon(inter_arrival_mean)
-            job_type = random_integer(job_probabilities[1:])
+            arrival_time = self.sim.now() + expon(inter_arrival_mean, STREAM_INTER_ARRIVAL)
+            job_type = random_integer(job_probabilities[1:], STREAM_JOB_TYPE)
             self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, job_type, 1))
 
         # now lets process the current arrival
@@ -179,7 +191,7 @@ class ArrivalEvent(Event):
             assert (0 <= sim.states.servers_busy[station] <= number_of_machines[station])
 
             # schedule a departure
-            e = erlang(mean_service_time["job" + str(self.job_type)][self.current_station])
+            e = erlang(2, mean_service_time["job" + str(self.job_type)][self.current_station], STREAM_SERVICE)
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, self.job_type, self.current_station))
 
@@ -219,11 +231,11 @@ class DepartureEvent(Event):
             delay = self.sim.now() - ev.event_time
 
             # add the delay of corresponding station and job
-            self.sim.states.avg_q_delay[station] += delay
-            self.sim.states.job_delay[ev.job_type] += delay
+            self.sim.states.avg_delay_in_q[station] += delay
+            self.sim.states.avg_delay_in_job[ev.job_type] += delay
 
             # schedule a departure
-            e = erlang(mean_service_time["job" + str(ev.job_type)][ev.current_station])
+            e = erlang(2, mean_service_time["job" + str(ev.job_type)][ev.current_station], STREAM_SERVICE)
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, ev.job_type, ev.current_station))
 
@@ -298,10 +310,7 @@ def read_input():
 
 def job_shop_model():
     read_input()
-
-    seed = 107
-    random.seed(seed)
-    np.random.seed(seed)
+    np.random.seed(107)
 
     # -----------------------------------------------------
     # variables to hold the metric
@@ -360,6 +369,7 @@ def job_shop_model():
 
 if __name__ == "__main__":
     job_shop_model()
+
 
 """
 start-event
