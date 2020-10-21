@@ -7,11 +7,16 @@ from collections import defaultdict
 # -----------------------------------------------
 # constants
 group_sizes = [1, 2, 3, 4]
-group_probabilities = [0.5, 0.3, 0.1, 0.1]
-inter_arrival_mean = 30 # seconds
+group_size_probabilities = [0.5, 0.3, 0.1, 0.1]
+counter_probabilities = [0.80, 0.15, 0.05]
+inter_arrival_mean = 30  # seconds
 simulation_duration = 90 * 60 * 60  # 90 minutes
+
 # -----------------------------------------------
 # variables
+counter_st = {"hot_food": (50, 120), "sandwich": (60, 180), "drinks": (5, 20)}
+counter_act = {"hot_food": (20, 40), "sandwich": (5, 15), "drinks": (5, 10)}
+q_quantity = {}
 
 
 # States and statistical counters
@@ -116,9 +121,28 @@ class Simulator:
         return self.states.finish(self)
 
 
-def Cafeteria_Model():
+def cafeteria_model():
     None
 
 
+def set_specs(idx):
+    global q_quantity, counter_st, counter_act
+
+    quantities = [[1, 1, 2], [1, 1, 3], [2, 1, 2], [1, 2, 2], [2, 2, 2], [2, 1, 3], [1, 2, 3], [2, 2, 3]]
+    q_quantity = {"hot_food": quantities[idx][0], "sandwich": quantities[idx][1], "drinks": quantities[idx][2]}
+
+    # scale down
+    counter_st["hot_food"] = (
+        counter_st["hot_food"][0] / quantities[idx][0], counter_st["hot_food"][1] / quantities[idx][0])
+    counter_st["sandwich"] = (
+        counter_st["sandwich"][0] / quantities[idx][1], counter_st["sandwich"][1] / quantities[idx][1])
+
+    counter_act["hot_food"] = (
+        counter_act["hot_food"][0] / quantities[idx][0], counter_act["hot_food"][1] / quantities[idx][0])
+    counter_act["sandwich"] = (
+        counter_act["sandwich"][0] / quantities[idx][1], counter_act["sandwich"][1] / quantities[idx][1])
+
+
 if __name__ == "__main__":
-    Cafeteria_Model()
+    set_specs(0)
+    cafeteria_model()
