@@ -176,7 +176,15 @@ class ArrivalEvent(Event):
 
             # counter is the current counter name - hot_food / sandwich / drinks / cash
             counter = counter_routing[self.grp_type][self.current_counter]
-            service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+
+            # if cash then use act
+            service_time = 0
+            if counter == "cash":
+                for key in counter_act:
+                    x = uniform_rand(counter_act[key][0], counter_act[key][1])
+                    service_time += x
+            else:
+                service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
 
             # if cash then find which counter it is
             q_no = 0
@@ -218,21 +226,31 @@ class DepartureEvent(Event):
 
     def process(self):
         # check if the queue of the counter has more people
-        if len(self.sim.states.queue[self.grp_type][self.q_no]):
-            u = self.sim.states.queue[self.grp_type][self.q_no].pop(0)
+        counter = counter_routing[self.grp_type][self.current_counter]
+
+        if len(self.sim.states.queue[counter][self.q_no]) > 0:
+            u = self.sim.states.queue[counter][self.q_no].pop(0)
 
             # check delay and
             delay = self.sim.now() - u.event_time
-            counter = counter_routing[u.grp_type][u.current_counter]
 
             # delay update
-            self.sim.states.avg_q_delay[counter] += delay
-            self.sim.states.max_q_delay[counter] = max(self.sim.states.max_q_delay[counter], delay)
+            if counter != "drinks":
+                self.sim.states.avg_q_delay[counter] += delay
+                self.sim.states.max_q_delay[counter] = max(self.sim.states.max_q_delay[counter], delay)
             self.sim.states.avg_delay_customer[u.grp_type] += delay
             self.sim.states.max_delay_customer[u.grp_type] = max(self.sim.states.max_delay_customer[u.grp_type], delay)
 
             # schedule the departure
-            service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+            # if cash then use act
+            service_time = 0
+            if counter == "cash":
+                for key in counter_act:
+                    x = uniform_rand(counter_act[key][0], counter_act[key][1])
+                    service_time += x
+            else:
+                service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+
             self.sim.schedule_event(
                 DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
                                self.current_counter, self.q_no))
@@ -243,8 +261,8 @@ class DepartureEvent(Event):
             if self.grp_type == "cash":
                 self.sim.states.cash_server[self.q_no] = 0
 
-        # send to next
-        if self.current_counter < len(counter_routing[self.grp_type]):
+        # send to next.
+        if self.current_counter < len(counter_routing[self.grp_type]) - 1:
             # create new arrival
             # q_no does not matter here
             self.sim.schedule_event(
@@ -287,7 +305,6 @@ class Simulator:
         end = time.time()
         print("time taken:", end - start)
 
-        print(len(arrival_controller))
         return self.states.finish(self)
 
 
