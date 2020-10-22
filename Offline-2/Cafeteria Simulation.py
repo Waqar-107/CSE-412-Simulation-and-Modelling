@@ -65,7 +65,8 @@ class States:
         self.max_delay_customer = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
 
         # which counter served how much
-        self.served = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
+        self.served = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0, "cash": 0.0}
+        self.customer_type_cnt = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0}
 
         # avg and max length of q
         # avg_q_length = sum of q area / simulation duration
@@ -76,11 +77,26 @@ class States:
         self.max_customer = 0
         self.current_customers = 0
 
+        self.time_last_event = 0
+
     def update(self, event):
+        time_since_last_event = event.event_time - self.time_last_event
+        self.time_last_event = event.event_time
+
         self.max_customer = max(self.max_customer, self.current_customers)
 
+        # avg q lengths
+        for key in self.avg_q_length:
+            cnt = 0
+            for i in range(len(self.queue[key])):
+                cnt += len(self.queue[key][i])
+                self.max_q_length[key] = max(self.max_q_length[key], len(self.queue[key][i]))
+
+            self.avg_q_length[key] += (cnt / len(self.queue[key])) * time_since_last_event
+
     def finish(self, sim):
-        None
+        for key in self.avg_q_length:
+            self.avg_q_length[key] /= sim.now()
 
 
 class Event:
@@ -123,6 +139,7 @@ class StartEvent(Event):
 
         for i in range(grp_size_type):
             grp_type = random_integer([0, 1, 2], counter_probabilities)
+            self.sim.states.customer_type_cnt[counter_mapping[grp_type]] += 1
             self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0, 0))
 
         # exit event
@@ -167,6 +184,7 @@ class ArrivalEvent(Event):
 
             for i in range(grp_size_type):
                 grp_type = random_integer([0, 1, 2], counter_probabilities)
+                self.sim.states.customer_type_cnt[counter_mapping[grp_type]] += 1
                 self.sim.schedule_event(
                     ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0, 0))
 
@@ -227,17 +245,19 @@ class DepartureEvent(Event):
     def process(self):
         # check if the queue of the counter has more people
         counter = counter_routing[self.grp_type][self.current_counter]
+        self.sim.states.served[counter] += 1
 
         if len(self.sim.states.queue[counter][self.q_no]) > 0:
             u = self.sim.states.queue[counter][self.q_no].pop(0)
 
-            # check delay and
+            # check delay
             delay = self.sim.now() - u.event_time
 
             # delay update
             if counter != "drinks":
                 self.sim.states.avg_q_delay[counter] += delay
                 self.sim.states.max_q_delay[counter] = max(self.sim.states.max_q_delay[counter], delay)
+
             self.sim.states.avg_delay_customer[u.grp_type] += delay
             self.sim.states.max_delay_customer[u.grp_type] = max(self.sim.states.max_delay_customer[u.grp_type], delay)
 
