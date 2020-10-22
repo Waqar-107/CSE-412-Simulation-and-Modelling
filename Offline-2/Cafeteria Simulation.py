@@ -2,6 +2,7 @@
 
 import heapq
 import numpy as np
+import time
 
 # -----------------------------------------------
 # constants
@@ -23,9 +24,17 @@ counter_st = {"hot_food": (50, 120), "sandwich": (60, 180), "drinks": (5, 20)}
 counter_act = {"hot_food": (20, 40), "sandwich": (5, 15), "drinks": (5, 10)}
 q_quantity = {}
 
+# arrival controller
+arrival_controller = {}
+group_no = 0
+
 
 def expon(mean):
     return np.random.exponential(mean)
+
+
+def uniform_rand(lo, hi):
+    return np.random.uniform(lo, hi)
 
 
 def random_integer(opts, probability_dist):
@@ -40,7 +49,7 @@ class States:
 
         # servers available
         self.servers_available = {"hot_food": q_quantity["hot_food"], "sandwich": q_quantity["sandwich"],
-                                  "cash": q_quantity["cash"]}
+                                  "drinks": np.inf, "cash": q_quantity["cash"]}
 
         # avg and max delays
         self.avg_q_delay = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
@@ -63,7 +72,7 @@ class States:
         self.current_customers = 0
 
     def update(self, event):
-        None
+        self.max_customer = max(self.max_customer, self.current_customers)
 
     def finish(self, sim):
         None
@@ -75,11 +84,21 @@ class Event:
         self.sim = sim
         self.event_time = None
 
-    def process(self, sim):
+    def process(self):
         raise Exception('Unimplemented process method for the event!')
 
     def __repr__(self):
         return self.eventType
+
+    # when there are two or more events with same time, the heap will depend on the 2nd element of the tuple to compare
+    # so we have to implement lt and le so that events can be compared in the heap
+    # for <
+    def __lt__(self, other):
+        return True
+
+    # for <=
+    def __le__(self, other):
+        return True
 
 
 class StartEvent(Event):
@@ -89,13 +108,17 @@ class StartEvent(Event):
         self.eventType = 'START'
         self.sim = sim
 
-    def process(self, sim):
+    def process(self):
+        global group_no
+
         # first arrival
         grp_size_type = random_integer(group_sizes, group_size_probabilities)
         arrival_time = self.sim.now() + expon(inter_arrival_mean)
+        group_no += 1
+
         for i in range(grp_size_type):
             grp_type = random_integer([0, 1, 2], counter_probabilities)
-            self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, counter_mapping[grp_type], 0))
+            self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0))
 
         # exit event
         self.sim.schedule_event(ExitEvent(simulation_duration, self.sim))
@@ -108,31 +131,73 @@ class ExitEvent(Event):
         self.eventType = 'EXIT'
         self.sim = sim
 
-    def process(self, sim):
+    def process(self):
         print("simulation is going to end now. current time:", self.event_time)
 
 
 class ArrivalEvent(Event):
-    def __init__(self, event_time, sim, grp_type, current_counter):
+    def __init__(self, event_time, sim, grp_no, grp_type, current_counter):
         super().__init__(sim)
         self.event_time = event_time
         self.eventType = 'ARRIVAL'
         self.sim = sim
+        self.group_no = grp_no
         self.grp_type = grp_type
         self.current_counter = current_counter
 
-    def process(self, sim):
-        None
+    def process(self):
+        global group_no
+
+        # schedule next arrival
+        if self.current_counter == 0 and self.group_no not in arrival_controller:
+            self.sim.states.current_customers += 1
+
+            grp_size_type = random_integer(group_sizes, group_size_probabilities)
+            arrival_time = self.event_time + expon(inter_arrival_mean)
+            group_no += 1
+
+            # mark it to avoid excessive event creations
+            arrival_controller[self.group_no] = True
+
+            for i in range(grp_size_type):
+                grp_type = random_integer([0, 1, 2], counter_probabilities)
+                self.sim.schedule_event(
+                    ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0))
+
+        # process the current arrival
+        if self.sim.states.servers_available[self.grp_type] > 0:
+            self.sim.states.servers_available[self.grp_type] -= 1
+
+            # counter is the current counter name - hot_food / sandwich / drinks / cash
+            counter = counter_routing[self.grp_type][self.current_counter]
+            service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+            self.sim.schedule_event(
+                DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
+                               self.current_counter))
+
+        else:
+            # append to the shortest queue
+            idx = 0
+            mn = np.inf
+            for i in range(len(self.sim.states.queue[self.grp_type])):
+                if len(self.sim.states.queue[self.grp_type][i]) < mn:
+                    mn = self.sim.states.queue[self.grp_type][i]
+                    idx = 0
+
+            self.sim.states.queue[self.grp_type][idx].append(self)
 
 
 class DepartureEvent(Event):
-    def __init__(self, event_time, sim):
+    def __init__(self, event_time, sim, grp_no, grp_type, current_counter):
         super().__init__(sim)
         self.event_time = event_time
         self.eventType = 'DEPARTURE'
         self.sim = sim
+        self.group_no = grp_no
+        self.grp_type = grp_type
+        self.current_counter = current_counter
 
-    def process(self, sim):
+    def process(self):
         None
 
 
@@ -155,8 +220,9 @@ class Simulator:
     def run(self):
         self.initialize()
 
+        start = time.time()
         while len(self.eventQ) > 0:
-            time, event = heapq.heappop(self.eventQ)
+            current_time, event = heapq.heappop(self.eventQ)
             if event.eventType == 'EXIT':
                 break
 
@@ -164,13 +230,17 @@ class Simulator:
                 self.states.update(event)
 
             self.simulator_clock = event.event_time
-            event.process(self)
+            event.process()
 
+        end = time.time()
+        print("time taken:", end - start)
+
+        print(len(arrival_controller))
         return self.states.finish(self)
 
 
 def cafeteria_model():
-    seed = 107
+    seed = 1
     np.random.seed(seed)
 
     sim = Simulator()
