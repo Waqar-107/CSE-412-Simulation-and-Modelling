@@ -44,12 +44,17 @@ def random_integer(opts, probability_dist):
 # States and statistical counters
 class States:
     def __init__(self):
-        # queues
-        self.queue = {"hot_food": [[]], "sandwich": [[]], "cash": [[] for _ in range(q_quantity["cash"])]}
+        # queues - though there is no q required for drinks, i have kept it to avoid a few if-else checks in departure
+        self.queue = {"hot_food": [[]], "sandwich": [[]], "drinks": [[]],
+                      "cash": [[] for _ in range(q_quantity["cash"])]}
 
         # servers available
         self.servers_available = {"hot_food": q_quantity["hot_food"], "sandwich": q_quantity["sandwich"],
                                   "drinks": np.inf, "cash": q_quantity["cash"]}
+
+        # need to track which q should be popped
+        # food counters will have a single q so it's easy to pop from their q
+        self.cash_server = [0] * q_quantity["cash"]
 
         # avg and max delays
         self.avg_q_delay = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
@@ -118,7 +123,7 @@ class StartEvent(Event):
 
         for i in range(grp_size_type):
             grp_type = random_integer([0, 1, 2], counter_probabilities)
-            self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0))
+            self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0, 0))
 
         # exit event
         self.sim.schedule_event(ExitEvent(simulation_duration, self.sim))
@@ -136,7 +141,7 @@ class ExitEvent(Event):
 
 
 class ArrivalEvent(Event):
-    def __init__(self, event_time, sim, grp_no, grp_type, current_counter):
+    def __init__(self, event_time, sim, grp_no, grp_type, current_counter, q_no):
         super().__init__(sim)
         self.event_time = event_time
         self.eventType = 'ARRIVAL'
@@ -144,6 +149,7 @@ class ArrivalEvent(Event):
         self.group_no = grp_no
         self.grp_type = grp_type
         self.current_counter = current_counter
+        self.q_no = q_no
 
     def process(self):
         global group_no
@@ -162,7 +168,7 @@ class ArrivalEvent(Event):
             for i in range(grp_size_type):
                 grp_type = random_integer([0, 1, 2], counter_probabilities)
                 self.sim.schedule_event(
-                    ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0))
+                    ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0, 0))
 
         # process the current arrival
         if self.sim.states.servers_available[self.grp_type] > 0:
@@ -171,12 +177,23 @@ class ArrivalEvent(Event):
             # counter is the current counter name - hot_food / sandwich / drinks / cash
             counter = counter_routing[self.grp_type][self.current_counter]
             service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+
+            # if cash then find which counter it is
+            q_no = 0
+            if counter == "cash":
+                for i in range(len(self.sim.states.cash_server)):
+                    if self.sim.states.cash_server[i] == 0:
+                        self.sim.states.cash_server[i] = 1
+                        q_no = i
+                        break
+
             self.sim.schedule_event(
                 DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
-                               self.current_counter))
+                               self.current_counter, q_no))
 
         else:
-            # append to the shortest queue
+            # append to the shortest queue. for food counters idx will always be 0
+            # for drinks counter, it will never reach this far as inf - 1 is inf
             idx = 0
             mn = np.inf
             for i in range(len(self.sim.states.queue[self.grp_type])):
@@ -184,11 +201,12 @@ class ArrivalEvent(Event):
                     mn = self.sim.states.queue[self.grp_type][i]
                     idx = 0
 
+            self.q_no = idx
             self.sim.states.queue[self.grp_type][idx].append(self)
 
 
 class DepartureEvent(Event):
-    def __init__(self, event_time, sim, grp_no, grp_type, current_counter):
+    def __init__(self, event_time, sim, grp_no, grp_type, current_counter, q_no):
         super().__init__(sim)
         self.event_time = event_time
         self.eventType = 'DEPARTURE'
@@ -196,9 +214,43 @@ class DepartureEvent(Event):
         self.group_no = grp_no
         self.grp_type = grp_type
         self.current_counter = current_counter
+        self.q_no = q_no
 
     def process(self):
-        None
+        # check if the queue of the counter has more people
+        if len(self.sim.states.queue[self.grp_type][self.q_no]):
+            u = self.sim.states.queue[self.grp_type][self.q_no].pop(0)
+
+            # check delay and
+            delay = self.sim.now() - u.event_time
+            counter = counter_routing[u.grp_type][u.current_counter]
+
+            # delay update
+            self.sim.states.avg_q_delay[counter] += delay
+            self.sim.states.max_q_delay[counter] = max(self.sim.states.max_q_delay[counter], delay)
+            self.sim.states.avg_delay_customer[u.grp_type] += delay
+            self.sim.states.max_delay_customer[u.grp_type] = max(self.sim.states.max_delay_customer[u.grp_type], delay)
+
+            # schedule the departure
+            service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
+            self.sim.schedule_event(
+                DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
+                               self.current_counter, self.q_no))
+
+        else:
+            # free resources
+            self.sim.states.servers_available[counter_routing[self.grp_type][self.current_counter]] += 1
+            if self.grp_type == "cash":
+                self.sim.states.cash_server[self.q_no] = 0
+
+        # send to next
+        if self.current_counter < len(counter_routing[self.grp_type]):
+            # create new arrival
+            # q_no does not matter here
+            self.sim.schedule_event(
+                ArrivalEvent(self.event_time, self.sim, self.group_no, self.grp_type, self.current_counter + 1, 0))
+        else:
+            self.sim.states.current_customers -= 1
 
 
 class Simulator:
@@ -277,8 +329,9 @@ in the events, keep some extra attribute,
 start-event
 -------------
 1. schedule the first arrival
-   a. first generate group size
+   a. first generate group size. group_no will be 1
    b. then for each of the student, find their food type and create arrival event for them
+   c. set q_no as 0
 2. schedule the exit
 
 exit-event
@@ -287,11 +340,13 @@ exit-event
 
 arrival-event
 -------------
-1. if this is an arrival at hot-food or sandwich section then create new arrivals here
+1. if this is the customers first food counter and the group that has not been used to create new arrival, then create
+   another arrival-event with group_no + 1 label. mark this group as used. 
 2. now lets start processing this one
-3. if the corresponding food section has idle employee start serving immediately. 
-   otherwise select the smallest queue and insert the event there. 
-
+3. if the corresponding food section has idle employee start serving immediately. otherwise select the smallest 
+   queue and insert the event there. if there are idle employee in cash then determine the index and save it as
+   q_no. 
+   
 departure-event
 ----------------
 1. check if the corresponding queue has any customer in it, if there's someone then start serving that customer and
