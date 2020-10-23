@@ -18,39 +18,27 @@ mean_service_time = defaultdict(list)
 
 # -------------------------------------
 # constants
-STREAM_INTER_ARRIVAL = 1
-STREAM_JOB_TYPE = 2
-STREAM_SERVICE = 3
-
 simulation_length = 1
 simulation_hours = 8
 precision = 3
 simulation_itr = 30
 
 
-def expon(mean, stream):
-    return -mean * math.log(lcgrand(stream))
+def expon(mean):
+    return -mean * math.log(lcgrand(1))
 
 
-def erlang(m, mean, stream):
-    mean_exponential = mean / m
-    summation = 0.0
-
-    i = 1
-    while i <= m:
-        summation += expon(mean_exponential, stream)
-        i += 1
-
-    return summation
+def erlang(mean):
+    return expon(mean / 2) + expon(mean / 2)
 
 
-def random_integer(probability_distribution, stream):
-    u = lcgrand(stream)
+def random_integer(probability_distribution):
+    u = lcgrand(3)
 
     cnt = 0
     for idx in range(len(probability_distribution)):
         cnt += probability_distribution[idx]
-        if u < cnt:
+        if u <= cnt:
             return idx + 1
 
     return len(probability_distribution)
@@ -143,8 +131,8 @@ class StartEvent(Event):
 
     def process(self, sim):
         # schedule the first arrival
-        arrival_time = self.event_time + expon(inter_arrival_mean, STREAM_INTER_ARRIVAL)
-        job_type = random_integer(job_probabilities[1:], STREAM_JOB_TYPE)
+        arrival_time = self.event_time + expon(inter_arrival_mean)
+        job_type = random_integer(job_probabilities[1:])
         self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, job_type, 1))
 
         # schedule the exit
@@ -177,8 +165,8 @@ class ArrivalEvent(Event):
             self.sim.states.job_cnt[self.job_type] += 1
             self.sim.states.current_jobs_in_system += 1
 
-            arrival_time = self.sim.now() + expon(inter_arrival_mean, STREAM_INTER_ARRIVAL)
-            job_type = random_integer(job_probabilities[1:], STREAM_JOB_TYPE)
+            arrival_time = self.sim.now() + expon(inter_arrival_mean)
+            job_type = random_integer(job_probabilities[1:])
             self.sim.schedule_event(ArrivalEvent(arrival_time, self.sim, job_type, 1))
 
         # now lets process the current arrival
@@ -190,7 +178,7 @@ class ArrivalEvent(Event):
             assert (0 <= sim.states.servers_busy[station] <= number_of_machines[station])
 
             # schedule a departure
-            e = erlang(2, mean_service_time["job" + str(self.job_type)][self.current_station], STREAM_SERVICE)
+            e = erlang(mean_service_time["job" + str(self.job_type)][self.current_station])
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, self.job_type, self.current_station))
 
@@ -234,7 +222,7 @@ class DepartureEvent(Event):
             self.sim.states.avg_delay_in_job[ev.job_type] += delay
 
             # schedule a departure
-            e = erlang(2, mean_service_time["job" + str(ev.job_type)][ev.current_station], STREAM_SERVICE)
+            e = erlang(mean_service_time["job" + str(ev.job_type)][ev.current_station])
             depart_time = self.sim.now() + e
             sim.schedule_event(DepartureEvent(depart_time, self.sim, ev.job_type, ev.current_station))
 
