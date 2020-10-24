@@ -10,7 +10,7 @@ group_sizes = [1, 2, 3, 4]
 group_size_probabilities = [0.5, 0.3, 0.1, 0.1]
 counter_probabilities = [0.80, 0.15, 0.05]
 inter_arrival_mean = 30  # seconds
-simulation_duration = 1000  # 90 * 60 * 60  # 90 minutes
+simulation_duration = 90 * 60  # 90 minutes
 counter_mapping = ["hot_food", "sandwich", "drinks"]
 counter_routing = {
     "hot_food": ["hot_food", "drinks", "cash"],
@@ -27,7 +27,8 @@ q_quantity = {}
 # arrival controller
 arrival_controller = {}
 group_no = 0
-total_grp_arrival = 0
+divide_by = 60
+precision = 3
 
 
 def expon(mean):
@@ -102,20 +103,36 @@ class States:
         # average delay in queues
         for key in self.avg_q_delay:
             self.avg_q_delay[key] /= self.served[key]
+            self.avg_q_delay[key] /= divide_by  # convert into other unit, e.g: minutes
+            self.avg_q_delay[key] = round(self.avg_q_delay[key], precision)
 
         # average q length
         for key in self.avg_q_length:
             self.avg_q_length[key] /= sim.now()
+            self.avg_q_length[key] = round(self.avg_q_length[key], precision)
 
         # average delay - customer-wise
         self.overall_avg_delay = 0
         for i in range(len(counter_mapping)):
             key = counter_mapping[i]
             self.avg_delay_customer[key] /= self.customer_type_cnt[key]
+            self.avg_delay_customer[key] /= divide_by  # convert into other unit, e.g: minutes
             self.overall_avg_delay += counter_probabilities[i] * self.avg_delay_customer[key]
+
+            self.avg_delay_customer[key] = round(self.avg_delay_customer[key], precision)
+
+        self.overall_avg_delay = round(self.overall_avg_delay, precision)
 
         # average served
         self.avg_served = self.served["cash"] / sim.now()
+        self.avg_served = round(self.avg_served, precision)
+
+        for key in self.max_delay_customer:
+            self.max_delay_customer[key] = round(self.max_delay_customer[key] / divide_by, precision)
+        for key in self.max_q_length:
+            self.max_q_length[key] = round(self.max_q_length[key], precision)
+        for key in self.max_q_delay:
+            self.max_q_delay[key] = round(self.max_q_delay[key] / divide_by, precision)
 
     def report(self):
         # average and maximum delays in queue
@@ -142,10 +159,6 @@ class States:
         # time-average and maximum total number of customers in the entire system
         print("maximum customer at any time instance", self.max_customer)
         print("average customer served", self.avg_served)
-        print("customer types arrived:", self.customer_type_cnt)
-        print("customer finished service", self.served)
-        print("customer still in the system at the end", self.current_customers)
-        print("total group arrival", total_grp_arrival)
 
 
 class Event:
@@ -218,7 +231,7 @@ class ArrivalEvent(Event):
         self.q_no = q_no  # the server number where the customer is taking service / q where it is waiting
 
     def process(self):
-        global group_no, total_grp_arrival
+        global group_no
 
         # if in the first station then increment customer in the system
         if self.current_counter == 0:
@@ -229,7 +242,6 @@ class ArrivalEvent(Event):
             grp_size_type = random_integer(group_sizes, group_size_probabilities)
             arrival_time = self.event_time + expon(inter_arrival_mean)
             group_no += 1
-            total_grp_arrival += 1
 
             # mark it to avoid excessive event creations
             arrival_controller[self.group_no] = True
@@ -252,12 +264,13 @@ class ArrivalEvent(Event):
             service_time = 0
             if counter == "cash":
                 for key in counter_act:
-                    x = uniform_rand(counter_act[key][0], counter_act[key][1])
-                    service_time += x
+                    if key in counter_routing[self.grp_type]:
+                        x = uniform_rand(counter_act[key][0], counter_act[key][1])
+                        service_time += x
             else:
                 service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
 
-            # if cash then find which counter it is, else keeping q_no will do
+            # if cash then find which counter it is, else keeping q_no 0 will do
             q_no = 0
             if counter == "cash":
                 for i in range(len(self.sim.states.cash_server)):
@@ -266,6 +279,7 @@ class ArrivalEvent(Event):
                         q_no = i
                         break
 
+            self.sim.states.served[counter] += 1
             self.sim.schedule_event(
                 DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
                                self.current_counter, q_no))
@@ -298,7 +312,6 @@ class DepartureEvent(Event):
     def process(self):
         # check if the queue of the counter has more people
         counter = counter_routing[self.grp_type][self.current_counter]
-        self.sim.states.served[counter] += 1
 
         # take out someone from the front of the q
         if len(self.sim.states.queue[counter][self.q_no]) > 0:
@@ -306,9 +319,6 @@ class DepartureEvent(Event):
 
             # check delay
             delay = self.event_time - u.event_time
-
-            if counter == "hot_food":
-                print("in hot_food", delay)
 
             # delay update
             if counter != "drinks":
@@ -323,11 +333,13 @@ class DepartureEvent(Event):
             service_time = 0
             if counter == "cash":
                 for key in counter_act:
-                    x = uniform_rand(counter_act[key][0], counter_act[key][1])
-                    service_time += x
+                    if key in counter_routing[u.grp_type]:
+                        x = uniform_rand(counter_act[key][0], counter_act[key][1])
+                        service_time += x
             else:
                 service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
 
+            self.sim.states.served[counter] += 1
             self.sim.schedule_event(
                 DepartureEvent(self.event_time + service_time, self.sim, self.group_no, self.grp_type,
                                self.current_counter, self.q_no))
