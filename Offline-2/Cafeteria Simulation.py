@@ -81,7 +81,7 @@ class States:
 
         self.time_last_event = 0
         self.overall_avg_delay = 0
-        self.avg_served = 0
+        self.avg_customer_in_system = 0
 
     def update(self, event):
         time_since_last_event = event.event_time - self.time_last_event
@@ -89,6 +89,7 @@ class States:
 
         # max customer at a time
         self.max_customer = max(self.max_customer, self.current_customers)
+        self.avg_customer_in_system += time_since_last_event * self.current_customers
 
         # avg q lengths
         for key in self.avg_q_length:
@@ -124,8 +125,7 @@ class States:
         self.overall_avg_delay = round(self.overall_avg_delay, precision)
 
         # average served
-        self.avg_served = self.served["cash"] / sim.now()
-        self.avg_served = round(self.avg_served, precision)
+        self.avg_customer_in_system = round(self.avg_customer_in_system / sim.now(), precision)
 
         for key in self.max_delay_customer:
             self.max_delay_customer[key] = round(self.max_delay_customer[key] / divide_by, precision)
@@ -158,7 +158,8 @@ class States:
 
         # time-average and maximum total number of customers in the entire system
         print("maximum customer at any time instance", self.max_customer)
-        print("average customer served", self.avg_served)
+        print("average customer", self.avg_customer_in_system)
+        print("total served", self.served["cash"])
 
 
 class Event:
@@ -429,7 +430,7 @@ def set_specs(idx):
 
 
 if __name__ == "__main__":
-    set_specs(0)
+    set_specs(7)
     cafeteria_model()
 
 """
