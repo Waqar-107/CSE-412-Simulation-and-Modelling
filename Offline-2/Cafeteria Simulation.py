@@ -10,7 +10,7 @@ group_sizes = [1, 2, 3, 4]
 group_size_probabilities = [0.5, 0.3, 0.1, 0.1]
 counter_probabilities = [0.80, 0.15, 0.05]
 inter_arrival_mean = 30  # seconds
-simulation_duration = 90 * 60 * 60  # 90 minutes
+simulation_duration = 1000  # 90 * 60 * 60  # 90 minutes
 counter_mapping = ["hot_food", "sandwich", "drinks"]
 counter_routing = {
     "hot_food": ["hot_food", "drinks", "cash"],
@@ -27,6 +27,7 @@ q_quantity = {}
 # arrival controller
 arrival_controller = {}
 group_no = 0
+total_grp_arrival = 0
 
 
 def expon(mean):
@@ -66,12 +67,12 @@ class States:
 
         # which counter served how much
         self.served = {"hot_food": 0, "sandwich": 0, "drinks": 0, "cash": 0}
-        self.customer_type_cnt = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0}
+        self.customer_type_cnt = {"hot_food": 0, "sandwich": 0, "drinks": 0}
 
         # avg and max length of q
         # avg_q_length = sum of q area / simulation duration
         self.avg_q_length = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
-        self.max_q_length = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
+        self.max_q_length = {"hot_food": 0, "sandwich": 0, "cash": 0}
 
         # avg and max number of customers in the system
         self.max_customer = 0
@@ -114,12 +115,12 @@ class States:
             self.overall_avg_delay += counter_probabilities[i] * self.avg_delay_customer[key]
 
         # average served
-        self.avg_served = self.served["cash"]
+        self.avg_served = self.served["cash"] / sim.now()
 
     def report(self):
         # average and maximum delays in queue
         print("average delays in queue of each type:")
-        print(self.avg_q_length)
+        print(self.avg_q_delay)
         print("max delays in the queue")
         print(self.max_q_delay, end="\n\n")
 
@@ -141,6 +142,10 @@ class States:
         # time-average and maximum total number of customers in the entire system
         print("maximum customer at any time instance", self.max_customer)
         print("average customer served", self.avg_served)
+        print("customer types arrived:", self.customer_type_cnt)
+        print("customer finished service", self.served)
+        print("customer still in the system at the end", self.current_customers)
+        print("total group arrival", total_grp_arrival)
 
 
 class Event:
@@ -207,21 +212,24 @@ class ArrivalEvent(Event):
         self.event_time = event_time
         self.eventType = 'ARRIVAL'
         self.sim = sim
-        self.group_no = grp_no
-        self.grp_type = grp_type
-        self.current_counter = current_counter
-        self.q_no = q_no
+        self.group_no = grp_no  # every chunk of people is assigned a unique number
+        self.grp_type = grp_type  # customer type : hot_food/sandwich/drinks
+        self.current_counter = current_counter  # current station number, an index
+        self.q_no = q_no  # the server number where the customer is taking service / q where it is waiting
 
     def process(self):
-        global group_no
+        global group_no, total_grp_arrival
+
+        # if in the first station then increment customer in the system
+        if self.current_counter == 0:
+            self.sim.states.current_customers += 1
 
         # schedule next arrival
         if self.current_counter == 0 and self.group_no not in arrival_controller:
-            self.sim.states.current_customers += 1
-
             grp_size_type = random_integer(group_sizes, group_size_probabilities)
             arrival_time = self.event_time + expon(inter_arrival_mean)
             group_no += 1
+            total_grp_arrival += 1
 
             # mark it to avoid excessive event creations
             arrival_controller[self.group_no] = True
@@ -232,12 +240,13 @@ class ArrivalEvent(Event):
                 self.sim.schedule_event(
                     ArrivalEvent(arrival_time, self.sim, group_no, counter_mapping[grp_type], 0, 0))
 
-        # process the current arrival
-        if self.sim.states.servers_available[self.grp_type] > 0:
-            self.sim.states.servers_available[self.grp_type] -= 1
+        # counter is the current counter name - hot_food / sandwich / drinks / cash
+        counter = counter_routing[self.grp_type][self.current_counter]
 
-            # counter is the current counter name - hot_food / sandwich / drinks / cash
-            counter = counter_routing[self.grp_type][self.current_counter]
+        # process the current arrival
+        # servers available, so create departure
+        if self.sim.states.servers_available[counter] > 0:
+            self.sim.states.servers_available[counter] -= 1
 
             # if cash then use act
             service_time = 0
@@ -248,7 +257,7 @@ class ArrivalEvent(Event):
             else:
                 service_time = uniform_rand(counter_st[counter][0], counter_st[counter][1])
 
-            # if cash then find which counter it is
+            # if cash then find which counter it is, else keeping q_no will do
             q_no = 0
             if counter == "cash":
                 for i in range(len(self.sim.states.cash_server)):
@@ -263,16 +272,16 @@ class ArrivalEvent(Event):
 
         else:
             # append to the shortest queue. for food counters idx will always be 0
-            # for drinks counter, it will never reach this far as inf - 1 is inf
+            # for drinks counter, it will never reach this far as servers available for drinks is inf
             idx = 0
             mn = np.inf
-            for i in range(len(self.sim.states.queue[self.grp_type])):
-                if len(self.sim.states.queue[self.grp_type][i]) < mn:
-                    mn = self.sim.states.queue[self.grp_type][i]
+            for i in range(len(self.sim.states.queue[counter])):
+                if len(self.sim.states.queue[counter][i]) < mn:
+                    mn = len(self.sim.states.queue[counter][i])
                     idx = 0
 
             self.q_no = idx
-            self.sim.states.queue[self.grp_type][idx].append(self)
+            self.sim.states.queue[counter][idx].append(self)
 
 
 class DepartureEvent(Event):
@@ -291,11 +300,15 @@ class DepartureEvent(Event):
         counter = counter_routing[self.grp_type][self.current_counter]
         self.sim.states.served[counter] += 1
 
+        # take out someone from the front of the q
         if len(self.sim.states.queue[counter][self.q_no]) > 0:
             u = self.sim.states.queue[counter][self.q_no].pop(0)
 
             # check delay
-            delay = self.sim.now() - u.event_time
+            delay = self.event_time - u.event_time
+
+            if counter == "hot_food":
+                print("in hot_food", delay)
 
             # delay update
             if counter != "drinks":
@@ -320,18 +333,22 @@ class DepartureEvent(Event):
                                self.current_counter, self.q_no))
 
         else:
-            # free resources
-            self.sim.states.servers_available[counter_routing[self.grp_type][self.current_counter]] += 1
+            # free resources as the queue is empty
+            self.sim.states.servers_available[counter] += 1
+
+            # if this was in the cash section then free the cash server
             if self.grp_type == "cash":
                 self.sim.states.cash_server[self.q_no] = 0
 
-        # send to next.
+        # send to next counter
+        # maintained 0-indexing so if current == len() - 1 then it is the cash
         if self.current_counter < len(counter_routing[self.grp_type]) - 1:
             # create new arrival
-            # q_no does not matter here
+            # q_no does not matter here, it will be changed in the arrival-event process if necessary
             self.sim.schedule_event(
                 ArrivalEvent(self.event_time, self.sim, self.group_no, self.grp_type, self.current_counter + 1, 0))
         else:
+            # this customer is done
             self.sim.states.current_customers -= 1
 
 
@@ -367,7 +384,7 @@ class Simulator:
             event.process()
 
         end = time.time()
-        print("time taken:", end - start)
+        print("time taken to finish simulation:", end - start, end="\n\n")
 
         self.states.finish(self)
         self.states.report()
