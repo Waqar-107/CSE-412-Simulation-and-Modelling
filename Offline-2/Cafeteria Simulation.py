@@ -61,11 +61,11 @@ class States:
         self.max_q_delay = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
 
         # avg and max delays for each type of customers
-        self.avg_delay_customer = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
-        self.max_delay_customer = {"hot_food": 0.0, "sandwich": 0.0, "cash": 0.0}
+        self.avg_delay_customer = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0}
+        self.max_delay_customer = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0}
 
         # which counter served how much
-        self.served = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0, "cash": 0.0}
+        self.served = {"hot_food": 0, "sandwich": 0, "drinks": 0, "cash": 0}
         self.customer_type_cnt = {"hot_food": 0.0, "sandwich": 0.0, "drinks": 0.0}
 
         # avg and max length of q
@@ -78,11 +78,14 @@ class States:
         self.current_customers = 0
 
         self.time_last_event = 0
+        self.overall_avg_delay = 0
+        self.avg_served = 0
 
     def update(self, event):
         time_since_last_event = event.event_time - self.time_last_event
         self.time_last_event = event.event_time
 
+        # max customer at a time
         self.max_customer = max(self.max_customer, self.current_customers)
 
         # avg q lengths
@@ -95,8 +98,49 @@ class States:
             self.avg_q_length[key] += (cnt / len(self.queue[key])) * time_since_last_event
 
     def finish(self, sim):
+        # average delay in queues
+        for key in self.avg_q_delay:
+            self.avg_q_delay[key] /= self.served[key]
+
+        # average q length
         for key in self.avg_q_length:
             self.avg_q_length[key] /= sim.now()
+
+        # average delay - customer-wise
+        self.overall_avg_delay = 0
+        for i in range(len(counter_mapping)):
+            key = counter_mapping[i]
+            self.avg_delay_customer[key] /= self.customer_type_cnt[key]
+            self.overall_avg_delay += counter_probabilities[i] * self.avg_delay_customer[key]
+
+        # average served
+        self.avg_served = self.served["cash"]
+
+    def report(self):
+        # average and maximum delays in queue
+        print("average delays in queue of each type:")
+        print(self.avg_q_length)
+        print("max delays in the queue")
+        print(self.max_q_delay, end="\n\n")
+
+        # time - average and maximum number in queue
+        print("average queue length")
+        print(self.avg_q_length)
+        print("max queue length")
+        print(self.max_q_length, end="\n\n")
+
+        # average and maximum total delay in all the queues for each of the three types of customers
+        print("average delay for individual types of customer")
+        print(self.avg_delay_customer)
+        print("max delay for individual types of customer")
+        print(self.max_delay_customer, end="\n\n")
+
+        # overall delay
+        print("overall delay:", self.overall_avg_delay, end="\n\n")
+
+        # time-average and maximum total number of customers in the entire system
+        print("maximum customer at any time instance", self.max_customer)
+        print("average customer served", self.avg_served)
 
 
 class Event:
@@ -325,7 +369,8 @@ class Simulator:
         end = time.time()
         print("time taken:", end - start)
 
-        return self.states.finish(self)
+        self.states.finish(self)
+        self.states.report()
 
 
 def cafeteria_model():
