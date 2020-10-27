@@ -180,10 +180,6 @@ class Event:
     def __lt__(self, other):
         return True
 
-    # for <=
-    def __le__(self, other):
-        return True
-
 
 class StartEvent(Event):
     def __init__(self, event_time, sim):
