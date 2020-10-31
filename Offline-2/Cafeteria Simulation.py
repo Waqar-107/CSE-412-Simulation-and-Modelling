@@ -22,6 +22,8 @@ counter_routing = {
 # variables
 counter_st = {"hot_food": (50, 120), "sandwich": (60, 180), "drinks": (5, 20)}
 counter_act = {"hot_food": (20, 40), "sandwich": (5, 15), "drinks": (5, 10)}
+counter_st_original = {"hot_food": (50, 120), "sandwich": (60, 180), "drinks": (5, 20)}
+counter_act_original = {"hot_food": (20, 40), "sandwich": (5, 15), "drinks": (5, 10)}
 q_quantity = {}
 
 # arrival controller
@@ -289,7 +291,7 @@ class ArrivalEvent(Event):
             for i in range(len(self.sim.states.queue[counter])):
                 if len(self.sim.states.queue[counter][i]) < mn:
                     mn = len(self.sim.states.queue[counter][i])
-                    idx = 0
+                    idx = i
 
             self.q_no = idx
             self.sim.states.queue[counter][idx].append(self)
@@ -408,10 +410,19 @@ def cafeteria_model():
 
 
 def set_specs(idx):
-    global q_quantity, counter_st, counter_act
+    global q_quantity, counter_st, counter_act, counter_st_original, counter_act_original
 
     quantities = [[1, 1, 2], [1, 1, 3], [2, 1, 2], [1, 2, 2], [2, 2, 2], [2, 1, 3], [1, 2, 3], [2, 2, 3]]
+    print("------------------------------------------------")
+    print("configuration", quantities[idx])
+
+    # config
     q_quantity = {"hot_food": quantities[idx][0], "sandwich": quantities[idx][1], "cash": quantities[idx][2]}
+
+    # copy from backup then scale down
+    for key in counter_st_original:
+        counter_st[key] = counter_st_original[key]
+        counter_act[key] = counter_act_original[key]
 
     # scale down
     counter_st["hot_food"] = (
@@ -426,8 +437,10 @@ def set_specs(idx):
 
 
 if __name__ == "__main__":
-    set_specs(7)
-    cafeteria_model()
+    for c in range(8):
+        set_specs(c)
+        cafeteria_model()
+        print(end="\n\n")
 
 """
 in the events, keep some extra attribute,
