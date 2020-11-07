@@ -53,7 +53,7 @@ class States:
                       "cash": [[] for _ in range(q_quantity["cash"])]}
 
         # servers available
-        self.servers_available = {"hot_food": q_quantity["hot_food"], "sandwich": q_quantity["sandwich"],
+        self.servers_available = {"hot_food": 1, "sandwich": 1,
                                   "drinks": np.inf, "cash": q_quantity["cash"]}
 
         # need to track which q should be popped
@@ -137,6 +137,7 @@ class States:
             self.max_q_delay[key] = round(self.max_q_delay[key] / divide_by, precision)
 
     def report(self):
+        print("arrivals ", self.customer_type_cnt)
         # average and maximum delays in queue
         print("average delays in queue of each type:")
         print(self.avg_q_delay)
@@ -402,7 +403,7 @@ class Simulator:
 
 
 def cafeteria_model():
-    seed = 1
+    seed = 101
     np.random.seed(seed)
 
     sim = Simulator()
