@@ -7,12 +7,14 @@
 
 using namespace std;
 
+// selects a random between lo and hi
 float RandomRange( float lo, float hi )
 {
     float scale = (float)rand() / (float) RAND_MAX;
     return lo + scale * ( hi - lo );
 }
 
+// the g(X)
 float integral(float u)
 {
     float down = 1 / (sqrt(2 * pi) * u);
@@ -31,6 +33,7 @@ int main()
 
     row = 0.0;
     n = 1000;
+    int seed = 118;
 
     cout << "         0.01    0.02    0.03    0.04    0.05    0.06    0.07    0.08    0.09" << endl;
     while(row <= 3.0)
@@ -46,7 +49,9 @@ int main()
 
             a = 0;
             b = exp(z);
-            srand(time(0));
+
+            // for every z-value, reset the random number generator
+            srand(seed);
 
             for(i = 0; i < n; i++)
             {
