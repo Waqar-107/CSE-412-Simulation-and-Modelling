@@ -20,16 +20,16 @@ int main()
     int i, j, k;
     int n, m;
 
-    srand(time(NULL));
+    srand(118);
 
     double analytic_result = -(cos(pi / 4) - cos(0));
     printf("analytic result: %lf\n", analytic_result);
 
-    int arr[] = {100, 1000, 5000,  7000, 10000};
+    int arr[] = {10, 20, 30,  40, 50, 100};
     double ans;
     double a = 0, b = pi / 4;
 
-    for(k = 0; k < 5; k++)
+    for(k = 0; k < 6; k++)
     {
         n = arr[k];
         ans = 0.0;
