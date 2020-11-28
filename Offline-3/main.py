@@ -62,7 +62,7 @@ class Solution:
 
     def serial_test_util(self, curr_d, max_d, k, string, cnt, constant):
         if curr_d == max_d:
-            return pow(cnt[string] * constant, 2)
+            return pow(cnt[string] - constant, 2)
 
         summation = 0
         for i in range(1, k + 1):
@@ -111,6 +111,7 @@ class Solution:
 
         chi_squared *= (pow(k, d) / self.number_of_rands)
 
+        print(chi_squared, stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1))
         # check if rejected or not
         if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1):
             print("rejected")
@@ -181,25 +182,25 @@ if __name__ == "__main__":
         # print()
 
         # serial test
-        # print("-------------------------------------------")
-        # print("serial test")
-        #
-        # print("d = 2, k = 4")
-        # solve.serial_test(d=2, k=4, _alpha=alpha)
-        #
-        # print("d = 2, k = 8")
-        # solve.serial_test(d=2, k=8, _alpha=alpha)
-        #
-        # print("d = 3, k = 4")
-        # solve.serial_test(d=3, k=4, _alpha=alpha)
-        #
-        # print("d = 3, k = 8")
-        # solve.serial_test(d=3, k=8, _alpha=alpha)
-        #
-        # print()
+        print("-------------------------------------------")
+        print("serial test")
+
+        print("d = 2, k = 4")
+        solve.serial_test(d=2, k=4, _alpha=alpha)
+
+        print("d = 2, k = 8")
+        solve.serial_test(d=2, k=8, _alpha=alpha)
+
+        print("d = 3, k = 4")
+        solve.serial_test(d=3, k=4, _alpha=alpha)
+
+        print("d = 3, k = 8")
+        solve.serial_test(d=3, k=8, _alpha=alpha)
+
+        print()
 
         # runs test
-        print("-------------------------------------------")
-        print("runs test")
-        solve.runs_test(_alpha=alpha)
-        print()
+        # print("-------------------------------------------")
+        # print("runs test")
+        # solve.runs_test(_alpha=alpha)
+        # print()
