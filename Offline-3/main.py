@@ -154,6 +154,7 @@ class Solution:
                 R += a[i][j] * (increasing_seq[i + 1] - self.number_of_rands * b[i]) * (
                             increasing_seq[j + 1] - self.number_of_rands * b[j])
 
+        R /= self.number_of_rands
         if R > stats.chi2.ppf(q=1 - _alpha, df=6):
             print("rejected")
         else:
@@ -201,3 +202,4 @@ if __name__ == "__main__":
         print("-------------------------------------------")
         print("runs test")
         solve.runs_test(_alpha=alpha)
+        print()
