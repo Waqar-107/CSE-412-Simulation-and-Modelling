@@ -1,6 +1,7 @@
 # from dust i have come, dust i will be
 
 from scipy import stats
+from collections import defaultdict
 
 multiplication_const = 65539
 mod = pow(2, 31)
@@ -59,6 +60,105 @@ class Solution:
         else:
             print("not rejected")
 
+    def serial_test_util(self, curr_d, max_d, k, string, cnt, constant):
+        if curr_d == max_d:
+            return pow(cnt[string] * constant, 2)
+
+        summation = 0
+        for i in range(1, k + 1):
+            summation += self.serial_test_util(curr_d + 1, max_d, k, string + str(i), cnt, constant)
+
+        return summation
+
+    def serial_test(self, d, k, _alpha):
+        self.generate_randoms()
+
+        cnt = defaultdict(int)
+        en = (self.number_of_rands // d) * d
+        interval = 1.0 / k
+
+        d_arr = []
+        for i in range(en):
+            d_arr.append(self.random_numbers[i])
+            if len(d_arr) == d:
+                # determine each of the elements interval and concatenate in a string
+                pattern = ""
+                for num in d_arr:
+                    lo = 0
+                    hi = k - 1
+
+                    while lo <= hi:
+                        mid = (lo + hi) // 2
+
+                        st = interval * mid
+                        en = st + interval
+
+                        # interval found
+                        if st <= num <= en:
+                            pattern += str(mid + 1)
+                            break
+                        elif num < st:
+                            hi = mid - 1
+                        else:
+                            lo = mid + 1
+
+                cnt[pattern] += 1
+                d_arr = []
+
+        chi_squared = 0
+        for i in range(1, k + 1):
+            chi_squared += self.serial_test_util(1, d, k, str(i), cnt, self.number_of_rands / pow(k, d))
+
+        chi_squared *= (pow(k, d) / self.number_of_rands)
+
+        # check if rejected or not
+        if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1):
+            print("rejected")
+        else:
+            print("not rejected")
+
+    def runs_test(self, _alpha):
+        self.generate_randoms()
+
+        a = [[4529.4, 9044.9, 13568, 18091, 22615, 27892],
+             [9044.9, 18097, 27139, 36187, 45234, 55789],
+             [13568, 27139, 40721, 54281, 67852, 83685],
+             [18091, 36187, 54281, 72414, 90470, 111580],
+             [22615, 45234, 67852, 90470, 113262, 139476],
+             [27892, 55789, 83685, 111580, 139476, 172860]
+             ]
+        b = [1 / 6, 5 / 24, 11 / 120, 19 / 720, 29 / 5040, 1 / 840]
+
+        increasing_seq = defaultdict(int)
+        cnt = 1
+
+        # corner case for determining increasing subsequence. though this will never be executed
+        if self.number_of_rands == 1:
+            increasing_seq[1] = 1
+
+        for i in range(1, self.number_of_rands):
+            if self.random_numbers[i] > self.random_numbers[i - 1]:
+                cnt += 1
+            else:
+                cnt = min(cnt, 6)
+                increasing_seq[cnt] += 1
+                cnt = 1
+
+            if i == self.number_of_rands - 1:
+                cnt = min(cnt, 6)
+                increasing_seq[cnt] += 1
+
+        R = 0
+        for i in range(6):
+            for j in range(6):
+                R += a[i][j] * (increasing_seq[i + 1] - self.number_of_rands * b[i]) * (
+                            increasing_seq[j + 1] - self.number_of_rands * b[j])
+
+        if R > stats.chi2.ppf(q=1 - _alpha, df=6):
+            print("rejected")
+        else:
+            print("not rejected")
+
 
 if __name__ == "__main__":
     nums = [20, 500, 4000, 10000]
@@ -68,13 +168,36 @@ if __name__ == "__main__":
         print("n =", n)
 
         # uniformity test
+        # print("-------------------------------------------")
+        # print("uniformity test")
+        #
+        # print("k = 10", end=". ")
+        # solve.uniformity_test(k=10, _alpha=alpha)
+        #
+        # print("k = 20", end=". ")
+        # solve.uniformity_test(k=20, _alpha=alpha)
+        #
+        # print()
+
+        # serial test
+        # print("-------------------------------------------")
+        # print("serial test")
+        #
+        # print("d = 2, k = 4")
+        # solve.serial_test(d=2, k=4, _alpha=alpha)
+        #
+        # print("d = 2, k = 8")
+        # solve.serial_test(d=2, k=8, _alpha=alpha)
+        #
+        # print("d = 3, k = 4")
+        # solve.serial_test(d=3, k=4, _alpha=alpha)
+        #
+        # print("d = 3, k = 8")
+        # solve.serial_test(d=3, k=8, _alpha=alpha)
+        #
+        # print()
+
+        # runs test
         print("-------------------------------------------")
-        print("uniformity test")
-
-        print("k = 10", end=". ")
-        solve.uniformity_test(k=10, _alpha=alpha)
-
-        print("k = 20", end=". ")
-        solve.uniformity_test(k=20, _alpha=alpha)
-
-        print()
+        print("runs test")
+        solve.runs_test(_alpha=alpha)
