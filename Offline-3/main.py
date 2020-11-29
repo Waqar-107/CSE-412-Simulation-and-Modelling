@@ -2,6 +2,7 @@
 
 from scipy import stats
 from collections import defaultdict
+import math
 
 multiplication_const = 65539
 mod = pow(2, 31)
@@ -23,6 +24,8 @@ class Solution:
 
         for i in range(self.number_of_rands):
             self.random_numbers[i] /= mod
+
+        assert (self.number_of_rands == len(self.random_numbers))
 
     def uniformity_test(self, k, _alpha):
         self.generate_randoms()
@@ -105,10 +108,12 @@ class Solution:
                 cnt[pattern] += 1
                 d_arr = []
 
+        print(cnt, self.number_of_rands / pow(k, d))
         chi_squared = 0
         for i in range(1, k + 1):
             chi_squared += self.serial_test_util(1, d, k, str(i), cnt, self.number_of_rands / pow(k, d))
 
+        print(chi_squared, (pow(k, d) / self.number_of_rands))
         chi_squared *= (pow(k, d) / self.number_of_rands)
 
         print(chi_squared, stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1))
@@ -133,7 +138,7 @@ class Solution:
         increasing_seq = defaultdict(int)
         cnt = 1
 
-        # corner case for determining increasing subsequence. though this will never be executed
+        # corner case for determining increasing run-up length. though this will never be executed
         if self.number_of_rands == 1:
             increasing_seq[1] = 1
 
@@ -153,10 +158,30 @@ class Solution:
         for i in range(6):
             for j in range(6):
                 R += a[i][j] * (increasing_seq[i + 1] - self.number_of_rands * b[i]) * (
-                            increasing_seq[j + 1] - self.number_of_rands * b[j])
+                        increasing_seq[j + 1] - self.number_of_rands * b[j])
 
         R /= self.number_of_rands
         if R > stats.chi2.ppf(q=1 - _alpha, df=6):
+            print("rejected")
+        else:
+            print("not rejected")
+
+    def correlation_test(self, j, _alpha):
+        self.generate_randoms()
+
+        h = int((self.number_of_rands - 1) / j - 1)
+        rho = 0
+
+        for k in range(h + 1):
+            rho += self.random_numbers[k * j] * self.random_numbers[(k + 1) * j]
+
+        rho = (12 * rho) / (h + 1)
+        rho -= 3
+
+        variance_rho = (13 * h + 7) / pow(h + 1, 2)
+        Aj = rho / math.sqrt(variance_rho)
+
+        if abs(Aj) > stats.norm.ppf(q=1 - _alpha / 2):
             print("rejected")
         else:
             print("not rejected")
@@ -182,25 +207,40 @@ if __name__ == "__main__":
         # print()
 
         # serial test
-        print("-------------------------------------------")
-        print("serial test")
-
-        print("d = 2, k = 4")
-        solve.serial_test(d=2, k=4, _alpha=alpha)
-
-        print("d = 2, k = 8")
-        solve.serial_test(d=2, k=8, _alpha=alpha)
-
-        print("d = 3, k = 4")
-        solve.serial_test(d=3, k=4, _alpha=alpha)
-
-        print("d = 3, k = 8")
-        solve.serial_test(d=3, k=8, _alpha=alpha)
-
-        print()
+        # print("-------------------------------------------")
+        # print("serial test")
+        #
+        # print("d = 2, k = 4")
+        # solve.serial_test(d=2, k=4, _alpha=alpha)
+        #
+        # print("d = 2, k = 8")
+        # solve.serial_test(d=2, k=8, _alpha=alpha)
+        #
+        # print("d = 3, k = 4")
+        # solve.serial_test(d=3, k=4, _alpha=alpha)
+        #
+        # print("d = 3, k = 8")
+        # solve.serial_test(d=3, k=8, _alpha=alpha)
+        #
+        # print()
 
         # runs test
         # print("-------------------------------------------")
         # print("runs test")
         # solve.runs_test(_alpha=alpha)
+        # print()
+
+        # correlation test
+        # print("-------------------------------------------")
+        # print("correlation test")
+        #
+        # print("j = 1")
+        # solve.correlation_test(j=1, _alpha=alpha)
+        #
+        # print("j = 3")
+        # solve.correlation_test(j=3, _alpha=alpha)
+        #
+        # print("j = 5")
+        # solve.correlation_test(j=5, _alpha=alpha)
+        #
         # print()
