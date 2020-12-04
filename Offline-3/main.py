@@ -69,7 +69,7 @@ class Solution:
 
         summation = 0
         for i in range(1, k + 1):
-            summation += self.serial_test_util(curr_d + 1, max_d, k, string + str(i), cnt, constant)
+            summation += self.serial_test_util(curr_d + 1, max_d, k, string + "_" + str(i), cnt, constant)
 
         return summation
 
@@ -77,15 +77,15 @@ class Solution:
         self.generate_randoms()
 
         cnt = defaultdict(int)
-        en = (self.number_of_rands // d) * d
+        length = (self.number_of_rands // d) * d
         interval = 1.0 / k
 
         d_arr = []
-        for i in range(en):
+        for i in range(length):
             d_arr.append(self.random_numbers[i])
             if len(d_arr) == d:
                 # determine each of the elements interval and concatenate in a string
-                pattern = ""
+                pattern = []
                 for num in d_arr:
                     lo = 0
                     hi = k - 1
@@ -98,25 +98,22 @@ class Solution:
 
                         # interval found
                         if st <= num <= en:
-                            pattern += str(mid + 1)
+                            pattern.append(str(mid + 1))
                             break
                         elif num < st:
                             hi = mid - 1
                         else:
                             lo = mid + 1
 
-                cnt[pattern] += 1
+                cnt["_".join(pattern)] += 1
                 d_arr = []
 
-        print(cnt, self.number_of_rands / pow(k, d))
         chi_squared = 0
         for i in range(1, k + 1):
             chi_squared += self.serial_test_util(1, d, k, str(i), cnt, self.number_of_rands / pow(k, d))
 
-        print(chi_squared, (pow(k, d) / self.number_of_rands))
         chi_squared *= (pow(k, d) / self.number_of_rands)
 
-        print(chi_squared, stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1))
         # check if rejected or not
         if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1):
             print("rejected")
@@ -161,6 +158,7 @@ class Solution:
                         increasing_seq[j + 1] - self.number_of_rands * b[j])
 
         R /= self.number_of_rands
+        print(R)
         if R > stats.chi2.ppf(q=1 - _alpha, df=6):
             print("rejected")
         else:
@@ -195,52 +193,52 @@ if __name__ == "__main__":
         print("n =", n)
 
         # uniformity test
-        # print("-------------------------------------------")
-        # print("uniformity test")
-        #
-        # print("k = 10", end=". ")
-        # solve.uniformity_test(k=10, _alpha=alpha)
-        #
-        # print("k = 20", end=". ")
-        # solve.uniformity_test(k=20, _alpha=alpha)
-        #
-        # print()
+        print("-------------------------------------------")
+        print("uniformity test")
+
+        print("k = 10", end=". ")
+        solve.uniformity_test(k=10, _alpha=alpha)
+
+        print("k = 20", end=". ")
+        solve.uniformity_test(k=20, _alpha=alpha)
+
+        print()
 
         # serial test
-        # print("-------------------------------------------")
-        # print("serial test")
-        #
-        # print("d = 2, k = 4")
-        # solve.serial_test(d=2, k=4, _alpha=alpha)
-        #
-        # print("d = 2, k = 8")
-        # solve.serial_test(d=2, k=8, _alpha=alpha)
-        #
-        # print("d = 3, k = 4")
-        # solve.serial_test(d=3, k=4, _alpha=alpha)
-        #
-        # print("d = 3, k = 8")
-        # solve.serial_test(d=3, k=8, _alpha=alpha)
-        #
-        # print()
+        print("-------------------------------------------")
+        print("serial test")
+
+        print("d = 2, k = 4")
+        solve.serial_test(d=2, k=4, _alpha=alpha)
+
+        print("d = 3, k = 4")
+        solve.serial_test(d=3, k=4, _alpha=alpha)
+
+        print("d = 2, k = 8")
+        solve.serial_test(d=2, k=8, _alpha=alpha)
+
+        print("d = 3, k = 8")
+        solve.serial_test(d=3, k=8, _alpha=alpha)
+
+        print()
 
         # runs test
-        # print("-------------------------------------------")
-        # print("runs test")
-        # solve.runs_test(_alpha=alpha)
-        # print()
+        print("-------------------------------------------")
+        print("runs test")
+        solve.runs_test(_alpha=alpha)
+        print()
 
         # correlation test
-        # print("-------------------------------------------")
-        # print("correlation test")
-        #
-        # print("j = 1")
-        # solve.correlation_test(j=1, _alpha=alpha)
-        #
-        # print("j = 3")
-        # solve.correlation_test(j=3, _alpha=alpha)
-        #
-        # print("j = 5")
-        # solve.correlation_test(j=5, _alpha=alpha)
-        #
-        # print()
+        print("-------------------------------------------")
+        print("correlation test")
+
+        print("j = 1")
+        solve.correlation_test(j=1, _alpha=alpha)
+
+        print("j = 3")
+        solve.correlation_test(j=3, _alpha=alpha)
+
+        print("j = 5")
+        solve.correlation_test(j=5, _alpha=alpha)
+
+        print()
