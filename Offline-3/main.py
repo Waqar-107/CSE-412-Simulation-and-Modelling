@@ -53,9 +53,9 @@ class Solution:
         # chi square test
         chi_squared = 0.0
         for i in range(k):
-            chi_squared += pow(cnt[i] - n / k, 2)
+            chi_squared += pow(cnt[i] - self.number_of_rands / k, 2)
 
-        chi_squared *= (k / n)
+        chi_squared *= (k / self.number_of_rands)
 
         # check if rejected or not
         if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=k - 1):
@@ -158,7 +158,6 @@ class Solution:
                         increasing_seq[j + 1] - self.number_of_rands * b[j])
 
         R /= self.number_of_rands
-        print(R)
         if R > stats.chi2.ppf(q=1 - _alpha, df=6):
             print("rejected")
         else:
