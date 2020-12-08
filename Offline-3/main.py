@@ -29,26 +29,10 @@ class Solution:
 
     def uniformity_test(self, k, _alpha):
         self.generate_randoms()
-        interval = 1.0 / k
 
         cnt = [0] * k
         for r in self.random_numbers:
-            lo = 0
-            hi = k - 1
-
-            while lo <= hi:
-                mid = (lo + hi) // 2
-
-                st = interval * mid
-                en = st + interval
-
-                if st <= r <= en:
-                    cnt[mid] += 1
-                    break
-                elif r < st:
-                    hi = mid - 1
-                else:
-                    lo = mid + 1
+            cnt[int(r * k)] += 1
 
         # chi square test
         chi_squared = 0.0
@@ -78,7 +62,6 @@ class Solution:
 
         cnt = defaultdict(int)
         length = (self.number_of_rands // d) * d
-        interval = 1.0 / k
 
         d_arr = []
         for i in range(length):
@@ -87,23 +70,7 @@ class Solution:
                 # determine each of the elements interval and concatenate in a string
                 pattern = []
                 for num in d_arr:
-                    lo = 0
-                    hi = k - 1
-
-                    while lo <= hi:
-                        mid = (lo + hi) // 2
-
-                        st = interval * mid
-                        en = st + interval
-
-                        # interval found
-                        if st <= num <= en:
-                            pattern.append(str(mid + 1))
-                            break
-                        elif num < st:
-                            hi = mid - 1
-                        else:
-                            lo = mid + 1
+                    pattern.append(str(int(num * k) + 1))
 
                 cnt["_".join(pattern)] += 1
                 d_arr = []
