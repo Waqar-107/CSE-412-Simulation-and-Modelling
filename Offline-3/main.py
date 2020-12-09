@@ -7,6 +7,7 @@ import math
 multiplication_const = 65539
 mod = pow(2, 31)
 alpha = 0.1
+precision = 3
 
 
 class Solution:
@@ -42,6 +43,8 @@ class Solution:
         chi_squared *= (k / self.number_of_rands)
 
         # check if rejected or not
+        print("chi_squared:", round(chi_squared, precision), "ppf:",
+              round(stats.chi2.ppf(q=1 - _alpha, df=k - 1), precision))
         if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=k - 1):
             print("rejected")
         else:
@@ -80,6 +83,8 @@ class Solution:
             chi_squared += self.serial_test_util(1, d, k, str(i), cnt, self.number_of_rands / pow(k, d))
 
         chi_squared *= (pow(k, d) / self.number_of_rands)
+        print("chi_squared:", round(chi_squared, precision), "ppf:",
+              round(stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1), precision))
 
         # check if rejected or not
         if chi_squared > stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1):
@@ -125,6 +130,8 @@ class Solution:
                         increasing_seq[j + 1] - self.number_of_rands * b[j])
 
         R /= self.number_of_rands
+
+        print("R: ", round(R, precision), "ppf:", round(stats.chi2.ppf(q=1 - _alpha, df=6), precision))
         if R > stats.chi2.ppf(q=1 - _alpha, df=6):
             print("rejected")
         else:
@@ -145,6 +152,7 @@ class Solution:
         variance_rho = (13 * h + 7) / pow(h + 1, 2)
         Aj = rho / math.sqrt(variance_rho)
 
+        print("abs of Aj", round(abs(Aj), precision), "ppf:", round(stats.norm.ppf(q=1 - _alpha / 2), precision))
         if abs(Aj) > stats.norm.ppf(q=1 - _alpha / 2):
             print("rejected")
         else:
