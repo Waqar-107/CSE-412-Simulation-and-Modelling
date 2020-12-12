@@ -64,6 +64,7 @@ class Solution:
         self.generate_randoms()
 
         cnt = defaultdict(int)
+        number_of_tuples = self.number_of_rands // d
         length = (self.number_of_rands // d) * d
 
         d_arr = []
@@ -80,9 +81,9 @@ class Solution:
 
         chi_squared = 0
         for i in range(1, k + 1):
-            chi_squared += self.serial_test_util(1, d, k, str(i), cnt, self.number_of_rands / pow(k, d))
+            chi_squared += self.serial_test_util(1, d, k, str(i), cnt, number_of_tuples / pow(k, d))
 
-        chi_squared *= (pow(k, d) / self.number_of_rands)
+        chi_squared *= (pow(k, d) / number_of_tuples)
         print("chi_squared:", round(chi_squared, precision), "ppf:",
               round(stats.chi2.ppf(q=1 - _alpha, df=pow(k, d) - 1), precision))
 
